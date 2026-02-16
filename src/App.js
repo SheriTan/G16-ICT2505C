@@ -1,378 +1,863 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import * as XLSX from "xlsx";
 
-function prettyHours(x) {
-  if (x === null || x === undefined) return "-";
-  return `${x}h`;
-}
+const API_BASE = "http://localhost:5000";
 
-function Drilldown({ title, items, onClose }) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-        zIndex: 9999,
-      }}
-    >
-      <div
-        style={{
-          background: "white",
-          width: "min(900px, 95vw)",
-          maxHeight: "85vh",
-          overflow: "auto",
-          borderRadius: 8,
-          padding: 16,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ margin: 0 }}>{title}</h2>
-          <button onClick={onClose}>Close</button>
-        </div>
-
-        <div style={{ marginTop: 12 }}>
-          {!items || items.length === 0 ? (
-            <p>No items</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["Key", "Title", "Assignee", "Status", "Priority", "Created", "Completed"].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        style={{
-                          textAlign: "left",
-                          borderBottom: "1px solid #ddd",
-                          padding: "8px 6px",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((i) => (
-                  <tr key={i.key}>
-                    <td style={{ padding: "8px 6px", borderBottom: "1px solid #f0f0f0" }}>
-                      {i.key}
-                    </td>
-                    <td style={{ padding: "8px 6px", borderBottom: "1px solid #f0f0f0" }}>
-                      {i.title}
-                    </td>
-                    <td style={{ padding: "8px 6px", borderBottom: "1px solid #f0f0f0" }}>
-                      {i.assignee}
-                    </td>
-                    <td style={{ padding: "8px 6px", borderBottom: "1px solid #f0f0f0" }}>
-                      {i.status}
-                    </td>
-                    <td style={{ padding: "8px 6px", borderBottom: "1px solid #f0f0f0" }}>
-                      {i.priority || "-"}
-                    </td>
-                    <td style={{ padding: "8px 6px", borderBottom: "1px solid #f0f0f0" }}>
-                      {i.createdAt}
-                    </td>
-                    <td style={{ padding: "8px 6px", borderBottom: "1px solid #f0f0f0" }}>
-                      {i.completedAt || "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function App() {
+export default function App() {
   const [teams, setTeams] = useState([]);
-  const [selectedTeamId, setSelectedTeamId] = useState("team1");
+  const [platformFilter, setPlatformFilter] = useState("all"); // all | jira | github
+  const [selectedTeamId, setSelectedTeamId] = useState("");
 
-  const [data, setData] = useState(null);
-  const [loadingTeams, setLoadingTeams] = useState(true);
-  const [loadingDash, setLoadingDash] = useState(true);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+  const [loadingDash, setLoadingDash] = useState(false);
+
+  const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState("");
 
-  const [drill, setDrill] = useState(null); // { title, items }
+  // last updated indicator
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Load team list
-  useEffect(() => {
-    fetch("http://localhost:5000/api/teams")
-      .then((res) => res.json())
-      .then((result) => {
-        if (!result.success) throw new Error("Failed to load teams");
-        setTeams(result.teams || []);
-        // auto-select first team if team1 not found
-        const hasTeam1 = (result.teams || []).some((t) => t.id === "team1");
-        if (!hasTeam1 && (result.teams || []).length > 0) {
-          setSelectedTeamId(result.teams[0].id);
-        }
-        setLoadingTeams(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoadingTeams(false);
+  // -----------------------------
+  // Add Team form states
+  // -----------------------------
+  const [newPlatform, setNewPlatform] = useState("jira");
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newJiraBoardUrl, setNewJiraBoardUrl] = useState("");
+  const [newGithubRepoUrl, setNewGithubRepoUrl] = useState("");
+  const [newGithubProjectUrl, setNewGithubProjectUrl] = useState("");
+  const [savingTeam, setSavingTeam] = useState(false);
+
+  // -----------------------------
+  // Excel import states
+  // -----------------------------
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+
+  // -----------------------------
+  // Helpers
+  // -----------------------------
+  async function refreshTeams() {
+    const res = await fetch(`${API_BASE}/api/teams`);
+    const data = await res.json();
+    if (!data?.success) throw new Error(data?.message || "Failed to load teams");
+
+    const arr = data.teams || [];
+    setTeams(arr);
+
+    if (arr.length > 0 && !arr.some((t) => t.id === selectedTeamId)) {
+      setSelectedTeamId(arr[0].id);
+    }
+    if (arr.length > 0 && !selectedTeamId) {
+      setSelectedTeamId(arr[0].id);
+    }
+  }
+
+  async function addTeam() {
+    try {
+      setSavingTeam(true);
+      setError("");
+
+      const payload =
+        newPlatform === "jira"
+          ? {
+              platform: "jira",
+              teamName: newTeamName,
+              jiraBoardUrl: newJiraBoardUrl,
+            }
+          : {
+              platform: "github",
+              teamName: newTeamName,
+              githubRepoUrl: newGithubRepoUrl,
+              githubProjectUrl: newGithubProjectUrl,
+            };
+
+      const res = await fetch(`${API_BASE}/api/teams`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
+
+      const data = await res.json();
+      if (!data?.success) throw new Error(data?.message || "Failed to add team");
+
+      // Clear form
+      setNewTeamName("");
+      setNewJiraBoardUrl("");
+      setNewGithubRepoUrl("");
+      setNewGithubProjectUrl("");
+
+      await refreshTeams();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSavingTeam(false);
+    }
+  }
+
+  async function deleteSelectedTeam() {
+    try {
+      if (!selectedTeamId) return;
+      setError("");
+
+      const res = await fetch(
+        `${API_BASE}/api/teams/${encodeURIComponent(selectedTeamId)}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (!data?.success) throw new Error(data?.message || "Failed to delete team");
+
+      await refreshTeams();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  // -----------------------------
+  // Excel import helpers
+  // -----------------------------
+  function norm(v) {
+    if (v === null || v === undefined) return "";
+    return String(v).trim();
+  }
+
+  // Download an Excel template for instructors/students
+  function downloadExcelTemplate() {
+    // You can include one example row or keep them blank.
+    const rows = [
+      {
+        platform: "jira",
+        teamName: "Team 1",
+        jiraBoardUrl: "https://sit-workspace.atlassian.net/jira/software/projects/K1/boards/67",
+        githubRepoUrl: "",
+        githubProjectUrl: "",
+      },
+      {
+        platform: "github",
+        teamName: "Team 2",
+        jiraBoardUrl: "",
+        githubRepoUrl: "https://github.com/<owner>/<repo>",
+        githubProjectUrl: "https://github.com/users/<owner>/projects/1",
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(rows, {
+      header: [
+        "platform",
+        "teamName",
+        "jiraBoardUrl",
+        "githubRepoUrl",
+        "githubProjectUrl",
+      ],
+    });
+
+    // Make columns a bit wider
+    ws["!cols"] = [
+      { wch: 10 }, // platform
+      { wch: 22 }, // teamName
+      { wch: 60 }, // jiraBoardUrl
+      { wch: 45 }, // githubRepoUrl
+      { wch: 50 }, // githubProjectUrl
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Teams");
+
+    const arrayBuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([arrayBuf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "teams_import_template.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importTeamsFromExcel() {
+    try {
+      if (!importFile) return;
+
+      setImporting(true);
+      setError("");
+      setImportResult(null);
+
+      const buffer = await importFile.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      if (!rows.length) throw new Error("Excel file has no data rows.");
+
+      // Map rows to API payload
+      const teamsPayload = rows.map((r) => {
+        // Support only your recommended headers (but tolerate capitalization)
+        const platform = norm(r.platform || r.Platform).toLowerCase();
+        const teamName = norm(r.teamName || r.TeamName);
+
+        const jiraBoardUrl = norm(r.jiraBoardUrl || r.JiraBoardUrl);
+        const githubRepoUrl = norm(r.githubRepoUrl || r.GithubRepoUrl);
+        const githubProjectUrl = norm(r.githubProjectUrl || r.GithubProjectUrl);
+
+        return {
+          platform: platform || undefined,
+          teamName: teamName || undefined,
+          jiraBoardUrl: jiraBoardUrl || undefined,
+          githubRepoUrl: githubRepoUrl || undefined,
+          githubProjectUrl: githubProjectUrl || undefined,
+        };
+      });
+
+      const res = await fetch(`${API_BASE}/api/teams/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teams: teamsPayload }),
+      });
+
+      const data = await res.json();
+      if (!data?.success) throw new Error(data?.message || "Bulk import failed");
+
+      setImportResult(data);
+      await refreshTeams();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setImporting(false);
+      setImportFile(null);
+    }
+  }
+
+  // -----------------------------
+  // 1) Load teams
+  // -----------------------------
+  useEffect(() => {
+    async function loadTeams() {
+      try {
+        setLoadingTeams(true);
+        setError("");
+        await refreshTeams();
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoadingTeams(false);
+      }
+    }
+    loadTeams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load dashboard when team changes
+  // -----------------------------
+  // 2) Filter teams by toggle
+  // -----------------------------
+  const filteredTeams = useMemo(() => {
+    if (platformFilter === "all") return teams;
+    if (platformFilter === "jira") return teams.filter((t) => !t.github);
+    if (platformFilter === "github") return teams.filter((t) => !!t.github);
+    return teams;
+  }, [teams, platformFilter]);
+
+  // If chosen team disappears after filtering, auto-select first valid
   useEffect(() => {
-    if (!selectedTeamId) return;
+    if (!filteredTeams.length) return;
+    const exists = filteredTeams.some((t) => t.id === selectedTeamId);
+    if (!exists) setSelectedTeamId(filteredTeams[0].id);
+  }, [filteredTeams, selectedTeamId]);
 
-    setLoadingDash(true);
-    setError("");
+  const selectedTeam = useMemo(
+    () => teams.find((t) => t.id === selectedTeamId) || null,
+    [teams, selectedTeamId]
+  );
 
-    fetch(`http://localhost:5000/api/jira/dashboard?teamId=${selectedTeamId}`)
-      .then((res) => res.json())
-      .then((result) => {
-        if (!result.success) throw new Error(result.message || "Failed to load dashboard");
-        setData(result);
-        setLoadingDash(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoadingDash(false);
-      });
-  }, [selectedTeamId]);
+  // -----------------------------
+  // 3) Decide which dashboard API to call
+  // -----------------------------
+  function getDashboardUrl(team) {
+    if (!team) return null;
 
-  // Derived display values
-  const teamName = data?.team?.teamName || "Unknown Team";
-  const boardName = data?.project?.name || "Unknown Board";
+    if (team.github) {
+      return `${API_BASE}/api/github/dashboard?teamId=${encodeURIComponent(team.id)}`;
+    }
 
-  // BOARD ONLY summaries
-  const statusCategoryCounts = data?.statusCategoryCounts || {};
-  const memberCounts = data?.memberCounts || {};
-  const longestOpen = data?.longestOpen || null;
+    return `${API_BASE}/api/jira/dashboard?teamId=${encodeURIComponent(team.id)}`;
+  }
 
-  // Backlog (OFF BOARD)
-  const backlog = data?.backlog || { count: 0, byMember: {}, issues: [] };
+  // ======================================================
+  // 4) Load dashboard + AUTO-REFRESH (silent polling)
+  //    - No “Updating…” text
+  //    - No hiding dashboard every refresh
+  //    - Shows “Loading dashboard…” only on first load
+  // ======================================================
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId = null;
+    let abortCtrl = null;
 
-  // Analysis
-  const top = data?.topMembers || {};
-  const timeStats = data?.timeStatsByMember || {};
-  const latestSample = data?.latestSampleByMember || {};
+    async function loadDashboard({ silent = false } = {}) {
+      try {
+        if (!selectedTeam) return;
 
-  // Drilldowns (board-only)
-  const drilldowns = data?.drilldowns || {};
+        // Abort previous fetch if still running
+        if (abortCtrl) abortCtrl.abort();
+        abortCtrl = new AbortController();
 
-  const sortedMembers = useMemo(() => {
-    return Object.keys(memberCounts).sort(
-      (a, b) => (memberCounts[b] || 0) - (memberCounts[a] || 0)
-    );
-  }, [memberCounts]);
+        // Only show big loading on first load (no dashboard yet)
+        if (!silent && !dashboard) setLoadingDash(true);
 
-  if (loadingTeams) return <h2 style={{ padding: 20 }}>Loading teams...</h2>;
-  if (error) return <h2 style={{ padding: 20 }}>Error: {error}</h2>;
+        const url = getDashboardUrl(selectedTeam);
+        if (!url) throw new Error("Selected team is missing configuration.");
+
+        const res = await fetch(url, { signal: abortCtrl.signal });
+        const data = await res.json();
+
+        if (!data?.success) throw new Error(data?.message || "Dashboard request failed");
+
+        if (!cancelled) {
+          setDashboard(data);
+          setLastUpdated(new Date());
+        }
+      } catch (e) {
+        if (e.name === "AbortError") return;
+        if (!cancelled) setError(e.message);
+      } finally {
+        if (!cancelled) setLoadingDash(false);
+      }
+    }
+
+    // Initial load (not silent)
+    loadDashboard({ silent: false });
+
+    // Silent auto-refresh every 10 seconds (change to 15000/30000 if you want)
+    intervalId = setInterval(() => {
+      loadDashboard({ silent: true });
+    }, 10000);
+
+    return () => {
+      cancelled = true;
+      if (abortCtrl) abortCtrl.abort();
+      if (intervalId) clearInterval(intervalId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTeamId, selectedTeam]);
+
+  // -----------------------------
+  // 5) Normalize fields (Jira/GitHub differ slightly)
+  // -----------------------------
+  const statusSummary =
+    dashboard?.statusCategoryCounts ||
+    dashboard?.statusCounts ||
+    dashboard?.statusSummary ||
+    {};
+
+  const memberCounts = dashboard?.memberCounts || dashboard?.workloadByMember || {};
+
+  const backlogBlock = dashboard?.backlog || null;
+  const topMembers = dashboard?.topMembers || null;
+  const longestOpen = dashboard?.longestOpen || dashboard?.longestOpenTask || null;
+
+  const issuesByStatusCategory =
+    dashboard?.drilldowns?.issuesByStatusCategory ||
+    dashboard?.issuesByStatusCategory ||
+    null;
 
   return (
-    <div style={{ padding: "24px", fontFamily: "Arial" }}>
-      <h1 style={{ marginTop: 0 }}>KABAS Dashboard</h1>
+    <div className="App" style={{ maxWidth: 980, margin: "0 auto", padding: 20 }}>
+      <h1 style={{ textAlign: "center" }}>KABAS Dashboard</h1>
 
-      {/* Team selector */}
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ fontWeight: "bold", marginRight: 10 }}>Select Team:</label>
-        <select value={selectedTeamId} onChange={(e) => setSelectedTeamId(e.target.value)}>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.teamName}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {loadingDash ? (
-        <h2>Loading dashboard...</h2>
-      ) : (
-        <>
-          <h3 style={{ margin: "6px 0" }}>Team: {teamName}</h3>
-          <h3 style={{ margin: "6px 0" }}>Board: {boardName}</h3>
-
-          <hr />
-
-          {/* STATUS SUMMARY (ON BOARD ONLY) */}
-          <h2>Status Summary (On Board)</h2>
-          <p style={{ marginTop: 0, color: "#555" }}>
-            “To Do / In Progress / Done” are Jira status categories (works even if teams customize
-            status names). This section excludes backlog-tab items.
-          </p>
-
-          <ul>
-            {Object.entries(statusCategoryCounts).map(([k, v]) => (
-              <li key={k}>
-                <button
-                  style={{ cursor: "pointer" }}
-                  onClick={() =>
-                    setDrill({
-                      title: `On Board — Status Category: ${k}`,
-                      items: drilldowns.issuesByStatusCategory?.[k] || [],
-                    })
-                  }
-                >
-                  <b>{k}</b>: {v}
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <hr />
-
-          {/* BACKLOG (OFF BOARD ONLY) */}
-          <h2>Backlog (Off Board)</h2>
-          <p style={{ marginTop: 0, color: "#555" }}>
-            These are items from Jira’s <b>Backlog tab</b>. They are shown separately from the board
-            status counts.
-          </p>
-
-          <div style={{ marginBottom: 10 }}>
-            <button
-              style={{ cursor: "pointer" }}
-              onClick={() => setDrill({ title: "Backlog items (Off Board)", items: backlog.issues })}
-            >
-              <b>Total Backlog:</b> {backlog.count}
-            </button>
-          </div>
-
-          <h3>Backlog by Member</h3>
-          {Object.keys(backlog.byMember || {}).length === 0 ? (
-            <p>No backlog items or not supported for this team (needs boardId).</p>
-          ) : (
-            <ul>
-              {Object.entries(backlog.byMember || {}).map(([member, count]) => (
-                <li key={member}>
-                  {member}: {count}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <hr />
-
-          <h2>Workload by Member (On Board)</h2>
-          <ul>
-            {sortedMembers.map((m) => (
-              <li key={m}>
-                <button
-                  style={{ cursor: "pointer" }}
-                  onClick={() =>
-                    setDrill({
-                      title: `On Board — Assignee: ${m}`,
-                      items: drilldowns.issuesByAssignee?.[m] || [],
-                    })
-                  }
-                >
-                  {m}: {memberCounts[m]} tasks
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <hr />
-
-          <h2>Most Tasks (Top Members)</h2>
-          <ul>
-            <li>
-              Most Opened (not completed): <b>{top?.mostOpened?.member || "-"}</b> (
-              {top?.mostOpened?.count || 0})
-            </li>
-            <li>
-              Most To-Do (status category = To Do): <b>{top?.mostTodo?.member || "-"}</b> (
-              {top?.mostTodo?.count || 0})
-            </li>
-            <li>
-              Most Backlog (from backlog tab): <b>{top?.mostBacklog?.member || "-"}</b> (
-              {top?.mostBacklog?.count || 0})
-            </li>
-          </ul>
-
-          <hr />
-
-          <h2>Longest Open Task (On Board)</h2>
-          {longestOpen ? (
-            <div style={{ border: "1px solid #ccc", padding: 12, borderRadius: 6 }}>
-              <p>
-                <b>Key:</b> {longestOpen.key}
-              </p>
-              <p>
-                <b>Title:</b> {longestOpen.title}
-              </p>
-              <p>
-                <b>Status:</b> {longestOpen.status} ({longestOpen.statusCategory})
-              </p>
-              <p>
-                <b>Owner:</b> {longestOpen.assignee}
-              </p>
-              <p>
-                <b>Age:</b> {prettyHours(longestOpen.ageHours)}
-              </p>
-
-              <button onClick={() => setDrill({ title: "Longest Open Task (details)", items: [longestOpen] })}>
-                View details
-              </button>
-            </div>
-          ) : (
-            <p>No open tasks 🎉</p>
-          )}
-
-          <hr />
-
-          <h2>Completion Time (Avg + Std Dev) per Member</h2>
-          {Object.keys(timeStats).length === 0 ? (
-            <p>No completed tasks yet (need Done tasks with completion time).</p>
-          ) : (
-            <ul>
-              {Object.entries(timeStats).map(([m, s]) => (
-                <li key={m}>
-                  <b>{m}</b> — Completed: {s.completedTasks}, Avg: {prettyHours(s.avgCompletionHours)}, StdDev:{" "}
-                  {prettyHours(s.stdDevHours)}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <hr />
-
-          <h2>Efficiency</h2>
-          <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 6 }}>
-            <p style={{ marginTop: 0 }}>
-              <b>Efficiency score:</b> {data?.efficiency?.efficiencyScore} (smaller is better)
-            </p>
-            <p style={{ margin: 0, color: "#555" }}>
-              Avg time per task: {prettyHours(data?.efficiency?.avgTimePerTaskHours)} • Project duration:{" "}
-              {prettyHours(data?.efficiency?.projectDurationHours)}
-            </p>
-            <p style={{ margin: 0, color: "#777", fontSize: 12 }}>
-              {data?.efficiency?.note}
-            </p>
-          </div>
-
-          <hr />
-
-          <h2>Latest Sample per Member (On Board)</h2>
-          <p style={{ marginTop: 0, color: "#555" }}>
-            For each member: show latest opened issue; if none, show latest completed issue.
-          </p>
-          <ul>
-            {Object.entries(latestSample).map(([m, issue]) => (
-              <li key={m}>
-                <b>{m}</b>: [{issue.key}] {issue.title} — {issue.status}
-              </li>
-            ))}
-          </ul>
-        </>
+      {lastUpdated && (
+        <div style={{ textAlign: "center", fontSize: 12, opacity: 0.7 }}>
+          Last updated: {lastUpdated.toLocaleTimeString()}
+        </div>
       )}
 
-      {drill && <Drilldown title={drill.title} items={drill.items} onClose={() => setDrill(null)} />}
+      {/* Bulk Import Teams (Excel/CSV) */}
+      <div
+        style={{
+          border: "1px solid #444",
+          borderRadius: 10,
+          padding: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <h2 style={{ marginTop: 0, marginBottom: 0 }}>Bulk Import Teams (Excel / CSV)</h2>
+
+          <button
+            onClick={downloadExcelTemplate}
+            style={{ padding: "10px 12px", borderRadius: 8, cursor: "pointer" }}
+          >
+            Download Excel Template
+          </button>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
+          <input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+          />
+
+          <button
+            onClick={importTeamsFromExcel}
+            disabled={!importFile || importing}
+            style={{ padding: "10px 12px", borderRadius: 8, cursor: "pointer" }}
+          >
+            {importing ? "Importing..." : "Import File"}
+          </button>
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: 12, opacity: 0.85 }}>
+          Required headers:{" "}
+          <code>platform</code>, <code>teamName</code>,{" "}
+          <code>jiraBoardUrl</code>, <code>githubRepoUrl</code>, <code>githubProjectUrl</code>.
+          <br />
+          Rules: Jira requires <code>jiraBoardUrl</code>. GitHub requires <code>githubRepoUrl</code> +{" "}
+          <code>githubProjectUrl</code>.
+        </div>
+
+        {importResult && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontWeight: "bold" }}>{importResult.message}</div>
+
+            {Array.isArray(importResult.results) && importResult.results.some((r) => !r.success) && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontWeight: "bold" }}>Failed rows (first 8):</div>
+                <ul>
+                  {importResult.results
+                    .filter((r) => !r.success)
+                    .slice(0, 8)
+                    .map((r, idx) => (
+                      <li key={idx}>
+                        Row {r.row}: {r.message}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Add Team block */}
+      <div
+        style={{
+          border: "1px solid #444",
+          borderRadius: 10,
+          padding: 12,
+          marginBottom: 16,
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>Add Team</h2>
+
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <label>
+            <strong>Platform:</strong>{" "}
+            <select
+              value={newPlatform}
+              onChange={(e) => setNewPlatform(e.target.value)}
+              style={{ padding: 6 }}
+            >
+              <option value="jira">Jira</option>
+              <option value="github">GitHub</option>
+            </select>
+          </label>
+
+          <label style={{ flex: "1 1 320px" }}>
+            <strong>Team Name:</strong>
+            <input
+              value={newTeamName}
+              onChange={(e) => setNewTeamName(e.target.value)}
+              placeholder="e.g., Team 3 - Kanban 1"
+              style={{ width: "100%", padding: 8, marginTop: 6 }}
+            />
+          </label>
+
+          {newPlatform === "jira" ? (
+            <label style={{ flex: "1 1 520px" }}>
+              <strong>Jira Board URL:</strong>
+              <input
+                value={newJiraBoardUrl}
+                onChange={(e) => setNewJiraBoardUrl(e.target.value)}
+                placeholder="https://.../jira/software/projects/K1/boards/67"
+                style={{ width: "100%", padding: 8, marginTop: 6 }}
+              />
+            </label>
+          ) : (
+            <>
+              <label style={{ flex: "1 1 520px" }}>
+                <strong>GitHub Repo URL:</strong>
+                <input
+                  value={newGithubRepoUrl}
+                  onChange={(e) => setNewGithubRepoUrl(e.target.value)}
+                  placeholder="https://github.com/<owner>/<repo>"
+                  style={{ width: "100%", padding: 8, marginTop: 6 }}
+                />
+              </label>
+
+              <label style={{ flex: "1 1 520px" }}>
+                <strong>GitHub Project URL:</strong>
+                <input
+                  value={newGithubProjectUrl}
+                  onChange={(e) => setNewGithubProjectUrl(e.target.value)}
+                  placeholder="https://github.com/users/<owner>/projects/1"
+                  style={{ width: "100%", padding: 8, marginTop: 6 }}
+                />
+              </label>
+            </>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+          <button
+            onClick={addTeam}
+            disabled={savingTeam}
+            style={{ padding: "10px 12px", borderRadius: 8, cursor: "pointer" }}
+          >
+            {savingTeam ? "Saving..." : "Add Team"}
+          </button>
+
+          <button
+            onClick={deleteSelectedTeam}
+            disabled={!selectedTeamId}
+            style={{ padding: "10px 12px", borderRadius: 8, cursor: "pointer" }}
+          >
+            Delete Selected Team
+          </button>
+        </div>
+
+        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>
+          Note: If the lecturer’s token is used, teams must add the lecturer as collaborator in Jira/GitHub to allow API access.
+        </div>
+      </div>
+
+      {/* Platform Toggle */}
+      <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 10 }}>
+        <strong>Platform:</strong>
+
+        <label>
+          <input
+            type="radio"
+            name="platform"
+            checked={platformFilter === "all"}
+            onChange={() => setPlatformFilter("all")}
+          />{" "}
+          All
+        </label>
+
+        <label>
+          <input
+            type="radio"
+            name="platform"
+            checked={platformFilter === "jira"}
+            onChange={() => setPlatformFilter("jira")}
+          />{" "}
+          Jira
+        </label>
+
+        <label>
+          <input
+            type="radio"
+            name="platform"
+            checked={platformFilter === "github"}
+            onChange={() => setPlatformFilter("github")}
+          />{" "}
+          GitHub
+        </label>
+      </div>
+
+      {/* Team selector */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
+        <strong>Select Team:</strong>
+        {loadingTeams ? (
+          <span>Loading teams...</span>
+        ) : (
+          <select
+            value={selectedTeamId}
+            onChange={(e) => setSelectedTeamId(e.target.value)}
+            style={{ padding: 6, minWidth: 360 }}
+          >
+            {filteredTeams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.teamName}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {selectedTeam && (
+        <div style={{ textAlign: "center", marginBottom: 10 }}>
+          <div>
+            <strong>Team:</strong> {selectedTeam.teamName}
+          </div>
+          <div>
+            <strong>Source:</strong> {selectedTeam.github ? "GitHub" : "Jira"}
+          </div>
+        </div>
+      )}
+
+      <hr />
+
+      {/* Errors */}
+      {error && (
+        <div
+          style={{
+            padding: 10,
+            background: "#3b1a1a",
+            border: "1px solid #7a2b2b",
+            marginBottom: 12,
+            borderRadius: 6,
+          }}
+        >
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      {/* Only show big loading message if NO dashboard yet */}
+      {!dashboard && loadingDash && <div>Loading dashboard...</div>}
+
+      {/* Keep dashboard visible even while silently refreshing */}
+      {dashboard && (
+        <>
+          {/* Status Summary */}
+          <h2 style={{ textAlign: "center" }}>Status Summary (On Board)</h2>
+          {Object.keys(statusSummary).length ? (
+            <ul style={{ maxWidth: 380, margin: "0 auto" }}>
+              {Object.entries(statusSummary).map(([k, v]) => (
+                <li key={k}>
+                  {k}: {v}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div style={{ textAlign: "center" }}>No status summary available.</div>
+          )}
+
+          <hr />
+
+          {/* Workload */}
+          <h2 style={{ textAlign: "center" }}>Workload by Member (On Board)</h2>
+          {Object.keys(memberCounts).length ? (
+            <ul style={{ maxWidth: 420, margin: "0 auto" }}>
+              {Object.entries(memberCounts).map(([k, v]) => (
+                <li key={k}>
+                  {k}: {v} tasks
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div style={{ textAlign: "center" }}>No workload data.</div>
+          )}
+
+          <hr />
+
+          {/* Top Members */}
+          {topMembers && (
+            <>
+              <h2 style={{ textAlign: "center" }}>Most Tasks (Top Members)</h2>
+              <ul style={{ maxWidth: 560, margin: "0 auto" }}>
+                {topMembers.mostOpened && (
+                  <li>
+                    Most Opened (not completed): {topMembers.mostOpened.member} (
+                    {topMembers.mostOpened.count})
+                  </li>
+                )}
+                {topMembers.mostTodo && (
+                  <li>
+                    Most To-Do: {topMembers.mostTodo.member} ({topMembers.mostTodo.count})
+                  </li>
+                )}
+                {topMembers.mostBacklog && (
+                  <li>
+                    Most Backlog: {topMembers.mostBacklog.member} (
+                    {topMembers.mostBacklog.count})
+                  </li>
+                )}
+              </ul>
+              <hr />
+            </>
+          )}
+
+          {/* Backlog block */}
+          {dashboard?.backlog && (
+            <>
+              <h2 style={{ textAlign: "center" }}>Backlog (Off Board)</h2>
+              <div style={{ textAlign: "center" }}>Count: {dashboard.backlog.count ?? 0}</div>
+
+              {dashboard.backlog.byMember && (
+                <>
+                  <h3 style={{ textAlign: "center", marginTop: 10 }}>Backlog by Member</h3>
+                  <ul style={{ maxWidth: 420, margin: "0 auto" }}>
+                    {Object.entries(dashboard.backlog.byMember).map(([k, v]) => (
+                      <li key={k}>
+                        {k}: {v}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              <hr />
+            </>
+          )}
+
+          {/* Longest Open */}
+          <h2 style={{ textAlign: "center" }}>Longest Open Task</h2>
+          {longestOpen ? (
+            <div
+              style={{
+                border: "1px solid #444",
+                padding: 12,
+                borderRadius: 8,
+                maxWidth: 720,
+                margin: "0 auto",
+              }}
+            >
+              <div>
+                <strong>Key:</strong> {longestOpen.key}
+              </div>
+              <div>
+                <strong>Title:</strong> {longestOpen.title}
+              </div>
+              <div>
+                <strong>Status:</strong> {longestOpen.status}
+              </div>
+              {typeof longestOpen.ageHours !== "undefined" && (
+                <div>
+                  <strong>Age (hours):</strong> {Number(longestOpen.ageHours).toFixed(2)}
+                </div>
+              )}
+              {longestOpen.url && (
+                <div style={{ marginTop: 6 }}>
+                  <a href={longestOpen.url} target="_blank" rel="noreferrer">
+                    Open link
+                  </a>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ textAlign: "center" }}>No open task found.</div>
+          )}
+
+          <hr />
+
+          {/* Issues by status - expandable with details */}
+          {issuesByStatusCategory && (
+            <>
+              <h2 style={{ textAlign: "center" }}>Issues by Status</h2>
+              <div style={{ textAlign: "center", fontSize: 13, opacity: 0.85 }}>
+                Click each status to expand and see issue details (priority, assignee, dates, link).
+              </div>
+
+              <div style={{ maxWidth: 920, margin: "12px auto" }}>
+                {Object.entries(issuesByStatusCategory).map(([status, list]) => (
+                  <StatusPanel key={status} status={status} items={list || []} />
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-export default App;
+// ------------------------------------------------------
+// Expandable status panel that shows full issue details
+// ------------------------------------------------------
+function StatusPanel({ status, items }) {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          cursor: "pointer",
+          padding: "10px 12px",
+          border: "1px solid #444",
+          borderRadius: 8,
+          background: "transparent",
+          fontWeight: "bold",
+          width: "100%",
+          textAlign: "left",
+        }}
+      >
+        {open ? "▼" : "▶"} {status} ({items.length})
+      </button>
+
+      {open && (
+        <div
+          style={{
+            border: "1px solid #333",
+            borderTop: "none",
+            padding: 12,
+            borderRadius: "0 0 8px 8px",
+          }}
+        >
+          {items.length === 0 ? (
+            <div>No items.</div>
+          ) : (
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {items.map((it) => (
+                <li key={it.key} style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 2 }}>
+                    <strong>[{it.key}]</strong> {it.title}
+                  </div>
+
+                  <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
+                    <div>
+                      <strong>Assignee:</strong> {it.assignee || "Unassigned"}
+                    </div>
+                    <div>
+                      <strong>Priority:</strong> {it.priority || "-"}
+                    </div>
+                    <div>
+                      <strong>Status:</strong> {it.status || status}
+                    </div>
+
+                    {it.createdAt && (
+                      <div>
+                        <strong>Created:</strong> {it.createdAt}
+                      </div>
+                    )}
+                    {it.updatedAt && (
+                      <div>
+                        <strong>Updated:</strong> {it.updatedAt}
+                      </div>
+                    )}
+                    {it.completedAt && (
+                      <div>
+                        <strong>Completed:</strong> {it.completedAt}
+                      </div>
+                    )}
+                  </div>
+
+                  {it.url && (
+                    <div style={{ marginTop: 4 }}>
+                      <a href={it.url} target="_blank" rel="noreferrer">
+                        Open issue
+                      </a>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

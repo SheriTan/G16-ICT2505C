@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import jiraRoutes from "./routes/jira.js";
 import teamsRoutes from "./routes/teams.js";
+import githubRoutes from "./routes/github.js";
 
 dotenv.config();
 
@@ -19,6 +20,9 @@ app.use("/api/jira", jiraRoutes);
 
 // Teams routes (NEW)
 app.use("/api/teams", teamsRoutes);
+
+// Github routes
+app.use("/api/github", githubRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
