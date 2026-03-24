@@ -1,0 +1,79 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 12px 20px;
+  border-bottom: 1px solid #ddd;
+  background: #f7f7fb;
+}
+
+/* LEFT */
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.home-icon {
+  font-size: 18px;
+}
+
+.team-select {
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* CENTER */
+
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.add-team-btn {
+  background: #3a2ca0;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+}
+
+/* RIGHT */
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-icon {
+  font-size: 20px;
+}
+
+.mobile-menu {
+  display: none;
+  border: none;
+  background: none;
+  font-size: 20px;
+}
+
+@media (max-width: 768px) {
+
+  .header-center {
+    display: none;
+  }
+
+  .profile-icon {
+    display: none;
+  }
+
+  .mobile-menu {
+    display: block;
+  }
+
+}
