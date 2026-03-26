@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import React, { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import * as XLSX from "xlsx";
@@ -6,6 +7,7 @@ const API_BASE = "http://localhost:5000";
 
 export default function App() {
   const [teams, setTeams] = useState([]);
+<<<<<<< Updated upstream
   const [platformFilter, setPlatformFilter] = useState("all"); // all | jira | github
   const [selectedTeamId, setSelectedTeamId] = useState("");
 

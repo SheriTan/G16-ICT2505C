@@ -1,6 +1,7 @@
 import express from "express";
 import axios from "axios";
 import { getTeamWithInstructor } from "../data/teamStore.js";
+import { validateJiraBoardUrl } from "../../src/utils/UrlValidator.js";
 
 const router = express.Router();
 
@@ -15,16 +16,6 @@ function extractBaseUrl(boardUrl) {
   } catch {
     return null;
   }
-}
-
-function parseJiraBoardUrl(url) {
-  // Example: https://sit-workspace.atlassian.net/jira/software/projects/K1/boards/67
-  const m = String(url || "").match(/\/projects\/([^/]+)\/boards\/(\d+)/i);
-  if (!m) return null;
-  return {
-    projectKey: m[1],
-    boardId: Number(m[2]),
-  };
 }
 
 function hoursBetween(a, b) {
@@ -225,7 +216,7 @@ router.get("/dashboard", async (req, res) => {
         });
       }
 
-      const parsed = parseJiraBoardUrl(team.jira.boardUrl);
+      const parsed = validateJiraBoardUrl(team.jira.boardUrl);
       if (!parsed) {
         return res.status(400).json({
           success: false,
