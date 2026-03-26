@@ -17,11 +17,12 @@ router.post("/login", async (req, res) => {
     const { email } = req.body;
 
     const [rows] = await pool.query(
-        `SELECT * FROM instructor WHERE email = '${email}'`
+        "SELECT * FROM instructor WHERE email = ?",
+        [email]
     );
 
     if (rows.length === 0) {
-        return res.status(401).json({ error: "User not found" });
+        return res.status(401).json({ success: false, message: "User not found" });
     }
 
     const user = rows[0];
@@ -57,7 +58,7 @@ router.post("/register", async (req, res) => {
 
     } catch (err) {
         if (err.code === "ER_DUP_ENTRY") {
-            return res.status(400).json({ error: "Email already exists" });
+            return res.status(400).json({ success: false, message: "Email Address already exists" });
         }
 
         res.status(500).json({ error: "Internal Server Error" });
@@ -71,5 +72,6 @@ router.post("/logout", (req, res) => {
         res.json({ success: true });
     });
 });
+
 
 export default router;

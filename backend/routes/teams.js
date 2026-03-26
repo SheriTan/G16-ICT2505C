@@ -5,36 +5,9 @@ import {
   deleteTeam,
   readTeams
 } from "../data/teamStore.js";
+
+import { validateJiraBoardUrl, validateGithubRepoUrl, validateGithubProjectUrl } from "../../src/utils/UrlValidator.js";
 const router = express.Router();
-
-// URL parsers
-function parseJiraBoardUrl(url) {
-  // Example: https://sit-workspace.atlassian.net/jira/software/projects/K1/boards/67
-  const m = String(url || "").match(/\/projects\/([^/]+)\/boards\/(\d+)/i);
-  if (!m) return null;
-  return { projectKey: m[1], boardId: Number(m[2]) };
-}
-
-function parseGithubRepoUrl(url) {
-  // Example: https://github.com/TheronCJA/Testing-Kanban-1
-  const m = String(url || "").match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)(\/)?$/i);
-  if (!m) return null;
-  return { owner: m[1], repo: m[2] };
-}
-
-function parseGithubProjectUrl(url) {
-  // Example user project: https://github.com/users/TheronCJA/projects/1
-  // Example org project:  https://github.com/orgs/ORG/projects/1
-  const s = String(url || "");
-
-  let m = s.match(/^https?:\/\/github\.com\/users\/([^/]+)\/projects\/(\d+)(\/)?$/i);
-  if (m) return { owner: m[1], projectNumber: Number(m[2]), scope: "user" };
-
-  m = s.match(/^https?:\/\/github\.com\/orgs\/([^/]+)\/projects\/(\d+)(\/)?$/i);
-  if (m) return { owner: m[1], projectNumber: Number(m[2]), scope: "org" };
-
-  return null;
-}
 
 // Single / Bulk Add
 function buildTeamFromPayload(body) {
@@ -64,7 +37,7 @@ function buildTeamFromPayload(body) {
   if (platform === "jira") {
     if (!jiraBoardUrl) throw new Error("jiraBoardUrl required for Jira teams");
 
-    const parsed = parseJiraBoardUrl(jiraBoardUrl);
+    const parsed = validateJiraBoardUrl(jiraBoardUrl);
     if (!parsed) {
       throw new Error("Invalid Jira board URL. Expected /projects/<KEY>/boards/<ID>");
     }
@@ -85,15 +58,15 @@ function buildTeamFromPayload(body) {
       throw new Error("githubProjectUrl required (used by current GitHub dashboard code)");
     }
 
-    const repoParsed = parseGithubRepoUrl(githubRepoUrl);
+    const repoParsed = validateGithubRepoUrl(githubRepoUrl);
     if (!repoParsed) {
       throw new Error("Invalid GitHub repo URL. Expected https://github.com/<owner>/<repo>");
     }
 
-    const projParsed = parseGithubProjectUrl(githubProjectUrl);
+    const projParsed = validateGithubProjectUrl(githubProjectUrl);
     if (!projParsed) {
       throw new Error(
-        "Invalid GitHub project URL. Expected https://github.com/users/<owner>/projects/<num> (or /orgs/... )"
+        "Invalid GitHub project URL. Expected https://github.com/<users or orgs>/<owner>/projects/<num>"
       );
     }
 
@@ -124,21 +97,34 @@ router.get("/", async (req, res) => {
 // ADD a team (manual UI)
 router.post("/", async (req, res) => {
   try {
+    const iid = req.session.user?.iid;
+
+    if (!iid) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
     const team = buildTeamFromPayload(req.body);
-    const saved = await addTeam(team, 1); // instructor id 1 for now
+    const saved = await addTeam(team, iid);
+
     res.json({ success: true, team: saved });
+
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
   }
 });
 
 // BULK import teams (Excel -> frontend -> JSON -> this endpoint)
-// POST /api/teams/bulk
 router.post("/bulk", async (req, res) => {
   try {
+    const iid = req.session.user?.iid;
+
+    if (!iid) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
     const { teams } = req.body;
     if (!Array.isArray(teams) || teams.length === 0) {
-      return res.status(400).json({ success: false, message: "teams must be a non-empty array" });
+      return res.status(400).json({ success: false, message: "There are no teams to import" });
     }
 
     const results = [];
@@ -154,7 +140,7 @@ router.post("/bulk", async (req, res) => {
       }
     });
 
-    await bulkAddTeams(toInsert);
+    await bulkAddTeams(toInsert, iid);
 
     const ok = results.filter((r) => r.success).length;
     const fail = results.length - ok;

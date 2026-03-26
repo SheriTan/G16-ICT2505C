@@ -36,6 +36,8 @@
     transform: rotate(360deg);
   }
 }
+<<<<<<< Updated upstream
+=======
 
 /* Default: Desktop View */
 body{
@@ -85,6 +87,11 @@ body{
   background: #ddd;
 }
 
+.error {
+  color: red;
+  font-size: 12px;
+}
+
 /* Tablet View */
 @media (max-width: 768px) {
   .pageWrapper {
@@ -101,3 +108,4 @@ body{
     margin: 0 auto;
   }
 }
+>>>>>>> Stashed changes

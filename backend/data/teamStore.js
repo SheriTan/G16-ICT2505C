@@ -67,7 +67,7 @@ export async function getTeamWithInstructor(teamId) {
   return team;
 }
 
-export async function addTeam(teamObj, instructorId = 1) {
+export async function addTeam(teamObj, instructorId) {
   const { teamName, jira, github } = teamObj;
 
   const jiraUrl = jira?.boardUrl || null;
@@ -91,7 +91,7 @@ export async function deleteTeam(teamId) {
   return { deleted: result.affectedRows };
 }
 
-export async function bulkAddTeams(teamObjs, instructorId = 1) {
+export async function bulkAddTeams(teamObjs, instructorId) {
   const conn = await pool.getConnection();
 
   try {

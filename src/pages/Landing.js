@@ -3,6 +3,8 @@ import { useAuth } from "../utils/AuthContext";
 
 const Landing = () => {
     const { login, register } = useAuth();
+    const [loginError, setLoginError] = useState('');
+    const [registerError, setRegisterError] = useState('');
     const [loginField, setLoginField] = useState({
         email: ''
     });
@@ -14,12 +16,31 @@ const Landing = () => {
     });
 
     const handleLogin = async () => {
-        await login(loginField.email);
+        setLoginError('');
+        setRegisterError('');
+        try {
+            if (!loginField.email) {
+                return setLoginError('Please provide an Email Address');
+            }
+            await login(loginField.email);
+        } catch (error) {
+            setLoginError(error.response.data.message || 'An unexpected error occurred. Please try again later.');
+        }
     }
 
     const handleRegister = async () => {
-        console.log(registerField)
-        await register(registerField.email, registerField.jiraToken, registerField.githubToken);
+        setLoginError('');
+        setRegisterError('');
+
+        try {
+            if (!registerField.email) {
+                return setRegisterError('Please provide an Email Address');
+            }
+            await register(registerField.email, registerField.jiraToken, registerField.githubToken);
+        }
+        catch (error) {
+            setRegisterError(error.response.data.message || 'An unexpected error occurred. Please try again later.');
+        }
     }
 
     const handleInputChange = (e, type) => {
@@ -46,6 +67,7 @@ const Landing = () => {
                 <input type='email' name='email' placeholder='Email Address'
                     onChange={(e) => handleInputChange(e, 'login')} />
                 <button onClick={handleLogin}>Login</button>
+                {loginError && <p className="error">{loginError}</p>}
             </div>
             <div className='card'>
                 <h2>Register</h2>
@@ -56,6 +78,7 @@ const Landing = () => {
                 <input name='githubToken' placeholder='GitHub API Token (Optional)'
                     onChange={(e) => handleInputChange(e, 'register')} />
                 <button onClick={handleRegister}>Register</button>
+                {registerError && <p className="error">{registerError}</p>}
             </div>
         </div>
     )

@@ -1,0 +1,50 @@
+.dashboardWrapper {
+    padding: 10px 20px;
+}
+
+.dashboardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dashboardLeftHeader p {
+    font-style: italic;
+    color: #343434;
+}
+
+.dashboardRightHeader {
+    display: flex;
+}
+
+.dashboardRightHeader button {
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    gap: 4px;
+}
+
+.delbtn {
+    background: #FF3300;
+    color: white;
+}
+
+.delbtn:hover {
+    cursor: pointer;
+    background: #e72e00;
+    color: white;
+}
+
+.editbtn {
+    background: #34C78C;
+    color: white;
+}
+
+.editbtn:hover {
+    cursor: pointer;
+    background: #2fb27d;
+    color: white;
+}

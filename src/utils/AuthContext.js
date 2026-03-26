@@ -13,10 +13,12 @@ export function AuthProvider({ children }) {
 
   const checkSession = async () => {
     try {
-      await API.get("/session"); // backend checks cookie/session
+      const res = await API.get("/session");
       setAuthenticated(true);
+      return res.data;
     } catch {
       setAuthenticated(false);
+      return null;
     } finally {
       setLoading(false);
     }
