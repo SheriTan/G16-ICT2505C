@@ -1,5 +1,7 @@
 <<<<<<< Updated upstream
 import React, { useEffect, useMemo, useState } from "react";
+=======
+>>>>>>> Stashed changes
 import "./App.css";
 import * as XLSX from "xlsx";
 
@@ -67,6 +69,90 @@ export default function App() {
               platform: "jira",
               teamName: newTeamName,
               jiraBoardUrl: newJiraBoardUrl,
+=======
+  const [selectedTeamID, setSelectedTeamID] = useState('');
+  const API_BASE = "http://localhost:5000";
+
+  useEffect(() => {
+    refreshTeams();
+  }, []);
+
+  async function refreshTeams() {
+    try {
+      const res = await fetch(`${API_BASE}/api/teams`, {
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (data?.success) {
+        setTeams(data.teams);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  const titles = {
+    '/': 'Welcome Page',
+    '/overview': 'Overview',
+    '/team': 'Team Dashboard',
+    '/profile': 'Profile Page'
+  }
+
+  const router = createBrowserRouter([
+    {
+      element: <PublicRoute />,
+      children: [{
+        path: '/',
+        element: (
+          <>
+            <SetDocumentTitle titles={titles} />
+            <Landing />
+          </>
+        )
+      }]
+    },
+    {
+      element: <ProtectedRoute />,
+      children: [
+        {
+          element: <Layout
+            api={API_BASE}
+            teams={teams}
+            setTeams={setTeams}
+            selectedTeamID={selectedTeamID}
+            setSelectedTeamID={setSelectedTeamID}
+            refreshTeams={refreshTeams}
+          />,
+          children: [
+            {
+              path: '/overview',
+              element: (
+                <>
+                  <SetDocumentTitle titles={titles} />
+                  <Overview />
+                </>
+              )
+            },
+            {
+              path: '/team/:id',
+              element: (
+                <>
+                  <SetDocumentTitle titles={titles} />
+                  <Team />
+                </>
+              )
+            },
+            {
+              path: '/profile',
+              element: (
+                <>
+                  <SetDocumentTitle titles={titles} />
+                  <Profile />
+                </>
+              )
+>>>>>>> Stashed changes
             }
           : {
               platform: "github",

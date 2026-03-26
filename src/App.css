@@ -36,3 +36,76 @@
     transform: rotate(360deg);
   }
 }
+<<<<<<< Updated upstream
+=======
+
+/* Default: Desktop View */
+body{
+  margin:0;
+}
+
+.pageWrapper {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border-radius: 10px;
+  border: 1px solid #aaa;
+  padding: 30px;
+  min-width: 300px;
+  min-height: 380px;
+}
+
+.card h2 {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.card input {
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+}
+
+.card button {
+  border: none;
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.card button:hover{
+  background: #ddd;
+}
+
+.error {
+  color: red;
+  font-size: 12px;
+}
+
+/* Tablet View */
+@media (max-width: 768px) {
+  .pageWrapper {
+    flex-direction: column;
+    justify-content: flex-start; 
+    align-items: center;
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 360px;
+    margin: 0 auto;
+  }
+}
+>>>>>>> Stashed changes

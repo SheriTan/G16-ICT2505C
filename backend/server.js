@@ -11,6 +11,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+<<<<<<< Updated upstream
+=======
+app.use(session({
+  secret: process.env.SECRET_KEY,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax"
+  }
+}));
+
+>>>>>>> Stashed changes
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", message: "KABAS backend running" });
 });
