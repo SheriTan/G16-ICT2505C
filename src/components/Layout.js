@@ -7,7 +7,6 @@ export default function Layout(props) {
       <Header
         api={props.api}
         teams={props.teams}
-        setTeams={props.setTeams}
         selectedTeamID={props.selectedTeamID}
         setSelectedTeamID={props.setSelectedTeamID}
         refreshTeams={props.refreshTeams}

@@ -72,7 +72,7 @@ export default function App() {
           element: (
             <>
               <SetDocumentTitle titles={titles} />
-              <Landing />
+              <Landing refreshTeams={refreshTeams} />
             </>
           )
         }

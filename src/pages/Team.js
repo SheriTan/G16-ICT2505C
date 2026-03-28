@@ -19,7 +19,9 @@ export default function Team() {
     } = useOutletContext();
     const navigate = useNavigate();
 
-    const selectedTeam = teams?.find(t => String(t.id) === String(selectedTeamID));
+    const selectedTeam = teams?.find(
+        t => String(t.id) === String(selectedTeamID)
+    );
 
     // Dashboard Statistics Data Handling
     const statusSummary =
@@ -42,9 +44,10 @@ export default function Team() {
         dashboard?.issuesByStatusCategory ||
         null;
 
-    function getDashboardUrl(team) {
-        if (!team) return null;
+    const timeStatsByMember = dashboard?.timeStatsByMember || {};
+    const efficiency = dashboard?.efficiency || null;
 
+    function getDashboardUrl(team) {
         if (team.github) {
             return `${api}/api/github/dashboard?teamId=${encodeURIComponent(selectedTeamID)}`;
         }
@@ -166,72 +169,51 @@ export default function Team() {
     }
 
     useEffect(() => {
-        console.log(selectedTeam)
+        if (!selectedTeam) return;
+        setDashboard('');
+        setLastUpdated(null);
+
         let intervalId;
         let abortCtrl = new AbortController();
 
-        async function loadDashboard({ silent = false } = {}) {
+        async function loadDashboard(silent = false) {
             try {
-                if (!selectedTeam) return;
-
                 if (!silent && !dashboard) setLoadingDash(true);
-
                 const url = getDashboardUrl(selectedTeam);
-                const res = await fetch(url, { signal: abortCtrl.signal });
-                const data = await res.json();
 
-                if (data.success) {
-                    setDashboard(data);
-                    setLastUpdated(new Date());
+                const res = await fetch(url, {
+                    signal: abortCtrl.signal,
+                    credentials: "include"
+                });
+
+                const data = await res.json();
+                if (!data?.success) {
+                    return setError(data?.message || "Failed to load dashboard");
                 }
+
+                setDashboard(data);
+                console.log(data);
+                setLastUpdated(new Date());
+
             } catch (e) {
                 if (e.name !== "AbortError") {
                     console.error(e);
                 }
-            } finally {
-                setLoadingDash(false);
             }
         }
 
         loadDashboard();
-
+        // auto refresh
         intervalId = setInterval(() => {
-            loadDashboard({ silent: true });
+            loadDashboard(true); // silent refresh
         }, 10000);
 
         return () => {
             abortCtrl.abort();
             clearInterval(intervalId);
         };
-    }, [teams]);
 
-    const fetchTeams = async () => {
-        try {
-            const res = await fetch(`${api}/api/teams`, {
-                method: "GET",
-                credentials: "include"
-            });
-            const data = await res.json();
-
-            if (data?.success) {
-                return data.teams || [];
-            } else {
-                console.error("Failed to fetch teams");
-                return [];
-            }
-        } catch (error) {
-            console.error("Error fetching teams:", error);
-            return [];
-        }
-    }
-
-    if (!teams || teams.length === 0) {
-        return <div>Loading teams...</div>;
-    }
-
-    if (!selectedTeam) {
-        return <div>Team not found</div>;
-    }
+    }, [selectedTeamID]);
 
     return (
         <div className='dashboardWrapper'>
@@ -255,122 +237,154 @@ export default function Team() {
                 </div>
             </div>
 
+            {error ?
+                <p className="error">{error}</p> :
+                (!dashboard && loadingDash) ? <p>Loading dashboard...</p>
+                    : dashboard && (
+                        <div>
+                            {/* Status Summary */}
+                            <h2 style={{ textAlign: "center" }}>Status Summary (On Board)</h2>
+                            {Object.keys(statusSummary).length ? (
+                                <ul style={{ maxWidth: 380, margin: "0 auto" }}>
+                                    {Object.entries(statusSummary).map(([k, v]) => (
+                                        <li key={k}>
+                                            {k}: {v}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div style={{ textAlign: "center" }}>No status summary available.</div>
+                            )}
 
-
-
-            {!dashboard && loadingDash && <div>Loading dashboard...</div>}
-
-            {dashboard && (
-                <div>
-                    {/* Status Summary */}
-                    <h2 style={{ textAlign: "center" }}>Status Summary (On Board)</h2>
-                    {Object.keys(statusSummary).length ? (
-                        <ul style={{ maxWidth: 380, margin: "0 auto" }}>
-                            {Object.entries(statusSummary).map(([k, v]) => (
-                                <li key={k}>
-                                    {k}: {v}
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <div style={{ textAlign: "center" }}>No status summary available.</div>
-                    )}
-
-                    <hr />
-
-                    {/* Workload */}
-                    <h2 style={{ textAlign: "center" }}>Workload by Member (On Board)</h2>
-                    {Object.keys(memberCounts).length ? (
-                        <ul style={{ maxWidth: 420, margin: "0 auto" }}>
-                            {Object.entries(memberCounts).map(([k, v]) => (
-                                <li key={k}>
-                                    {k}: {v} tasks
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <div style={{ textAlign: "center" }}>No workload data.</div>
-                    )}
-
-                    <hr />
-
-                    {/* Top Members */}
-                    {topMembers && (
-                        <>
-                            <h2 style={{ textAlign: "center" }}>Most Tasks (Top Members)</h2>
-                            <ul style={{ maxWidth: 560, margin: "0 auto" }}>
-                                {topMembers.mostOpened && (
-                                    <li>
-                                        Most Opened: {topMembers.mostOpened.member} ({topMembers.mostOpened.count})
-                                    </li>
-                                )}
-                                {topMembers.mostTodo && (
-                                    <li>
-                                        Most To-Do: {topMembers.mostTodo.member} ({topMembers.mostTodo.count})
-                                    </li>
-                                )}
-                                {topMembers.mostBacklog && (
-                                    <li>
-                                        Most Backlog: {topMembers.mostBacklog.member} ({topMembers.mostBacklog.count})
-                                    </li>
-                                )}
-                            </ul>
                             <hr />
-                        </>
-                    )}
 
-                    {/* Backlog */}
-                    {dashboard?.backlog && (
-                        <>
-                            <h2 style={{ textAlign: "center" }}>Backlog (Off Board)</h2>
-                            <div style={{ textAlign: "center" }}>
-                                Count: {dashboard.backlog.count ?? 0}
-                            </div>
+                            {/* Workload */}
+                            <h2 style={{ textAlign: "center" }}>Workload by Member (On Board)</h2>
+                            {Object.keys(memberCounts).length ? (
+                                <ul style={{ maxWidth: 420, margin: "0 auto" }}>
+                                    {Object.entries(memberCounts).map(([k, v]) => (
+                                        <li key={k}>
+                                            {k}: {v} tasks
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div style={{ textAlign: "center" }}>No workload data.</div>
+                            )}
 
-                            {dashboard.backlog.byMember && (
+                            <hr />
+
+                            {/* Top Members */}
+                            {topMembers && (
                                 <>
-                                    <h3 style={{ textAlign: "center" }}>Backlog by Member</h3>
-                                    <ul style={{ maxWidth: 420, margin: "0 auto" }}>
-                                        {Object.entries(dashboard.backlog.byMember).map(([k, v]) => (
-                                            <li key={k}>
-                                                {k}: {v}
+                                    <h2 style={{ textAlign: "center" }}>Most Tasks (Top Members)</h2>
+                                    <ul style={{ maxWidth: 560, margin: "0 auto" }}>
+                                        {topMembers.mostOpened && (
+                                            <li>
+                                                Most Opened: {topMembers.mostOpened.member} ({topMembers.mostOpened.count})
                                             </li>
-                                        ))}
+                                        )}
+                                        {topMembers.mostTodo && (
+                                            <li>
+                                                Most To-Do: {topMembers.mostTodo.member} ({topMembers.mostTodo.count})
+                                            </li>
+                                        )}
+                                        {topMembers.mostBacklog && (
+                                            <li>
+                                                Most Backlog: {topMembers.mostBacklog.member} ({topMembers.mostBacklog.count})
+                                            </li>
+                                        )}
                                     </ul>
+                                    <hr />
+                                </>
+                            )}
+
+                            {/* Backlog */}
+                            {dashboard?.backlog && (
+                                <>
+                                    <h2 style={{ textAlign: "center" }}>Backlog (Off Board)</h2>
+                                    <div style={{ textAlign: "center" }}>
+                                        Count: {dashboard.backlog.count ?? 0}
+                                    </div>
+
+                                    {dashboard.backlog.byMember && (
+                                        <>
+                                            <h3 style={{ textAlign: "center" }}>Backlog by Member</h3>
+                                            <ul style={{ maxWidth: 420, margin: "0 auto" }}>
+                                                {Object.entries(dashboard.backlog.byMember).map(([k, v]) => (
+                                                    <li key={k}>
+                                                        {k}: {v}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </>
+                                    )}
+
+                                    <hr />
+                                </>
+                            )}
+
+                            {/* Longest Open */}
+                            <h2 style={{ textAlign: "center" }}>Longest Open Task</h2>
+                            {longestOpen ? (
+                                <div style={{ border: "1px solid #444", padding: 12, borderRadius: 8 }}>
+                                    <div><strong>{longestOpen.key}</strong> {longestOpen.title}</div>
+                                    <div>Status: {longestOpen.status}</div>
+                                    <div>Assignee: {longestOpen.assignee}</div>
+                                    <div>Age: {longestOpen.ageHours} hours</div>
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: "center" }}>No open task found.</div>
+                            )}
+
+                            <hr />
+
+                            {/* Issues */}
+                            {issuesByStatusCategory && (
+                                <>
+                                    <h2 style={{ textAlign: "center" }}>Issues by Status</h2>
+
+                                    <div style={{ maxWidth: 920, margin: "12px auto" }}>
+                                        {Object.entries(issuesByStatusCategory).map(([status, list]) => (
+                                            <StatusPanel key={status} status={status} items={list || []} />
+                                        ))}
+                                    </div>
                                 </>
                             )}
 
                             <hr />
-                        </>
-                    )}
 
-                    {/* Longest Open */}
-                    <h2 style={{ textAlign: "center" }}>Longest Open Task</h2>
-                    {longestOpen ? (
-                        <div style={{ border: "1px solid #444", padding: 12, borderRadius: 8 }}>
-                            <div><strong>{longestOpen.key}</strong> {longestOpen.title}</div>
-                            <div>Status: {longestOpen.status}</div>
+                            {/* Time Stats (Avg & Std Dev) */}
+                            <h2 style={{ textAlign: "center" }}>Time Stats by Member</h2>
+
+                            {Object.keys(timeStatsByMember).length ? (
+                                <ul style={{ maxWidth: 500, margin: "0 auto" }}>
+                                    {Object.entries(timeStatsByMember).map(([member, stats]) => (
+                                        <li key={member}>
+                                            <strong>{member}</strong> —
+                                            Avg: {stats.avgCompletionHours}h,
+                                            Std Dev: {stats.stdDevHours},
+                                            Completed: {stats.completedTasks}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div style={{ textAlign: "center" }}>No completion data.</div>
+                            )}
+
+                            <hr />
+                            {/* Efficiency */}
+                            <h2 style={{ textAlign: "center" }}>Project Efficiency</h2>
+
+                            {efficiency !== null ? (
+                                <div style={{ textAlign: "center" }}>
+                                    Efficiency: {efficiency.toFixed(2)}%
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: "center" }}>No efficiency data.</div>
+                            )}
                         </div>
-                    ) : (
-                        <div style={{ textAlign: "center" }}>No open task found.</div>
                     )}
-
-                    <hr />
-
-                    {/* Issues */}
-                    {issuesByStatusCategory && (
-                        <>
-                            <h2 style={{ textAlign: "center" }}>Issues by Status</h2>
-
-                            <div style={{ maxWidth: 920, margin: "12px auto" }}>
-                                {Object.entries(issuesByStatusCategory).map(([status, list]) => (
-                                    <StatusPanel key={status} status={status} items={list || []} />
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
         </div>
     );
 }

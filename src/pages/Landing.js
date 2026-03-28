@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from "../utils/AuthContext";
 
-const Landing = () => {
+const Landing = ({refreshTeams}) => {
     const { login, register } = useAuth();
     const [loginError, setLoginError] = useState('');
     const [registerError, setRegisterError] = useState('');
@@ -23,6 +23,7 @@ const Landing = () => {
                 return setLoginError('Please provide an Email Address');
             }
             await login(loginField.email);
+            await refreshTeams();
         } catch (error) {
             setLoginError(error.response.data.message || 'An unexpected error occurred. Please try again later.');
         }

@@ -90,8 +90,21 @@ function buildTeamFromPayload(body) {
 
 // GET all teams
 router.get("/", async (req, res) => {
-  const teams = await readTeams();
-  res.json({ success: true, teams });
+  try {
+    const iid = req.session.user?.iid;
+
+    if (!iid) {
+      return res.status(401).json({ success: false, message: "Unauthorized User" });
+    }
+
+    const teams = await readTeams(iid);
+    res.json({ success: true, teams });
+  } catch (e) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
 });
 
 // ADD a team (manual UI)
@@ -100,7 +113,7 @@ router.post("/", async (req, res) => {
     const iid = req.session.user?.iid;
 
     if (!iid) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(401).json({ success: false, message: "Unauthorized User" });
     }
 
     const team = buildTeamFromPayload(req.body);
@@ -119,7 +132,7 @@ router.post("/bulk", async (req, res) => {
     const iid = req.session.user?.iid;
 
     if (!iid) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(401).json({ success: false, message: "Unauthorized User" });
     }
 
     const { teams } = req.body;
@@ -157,8 +170,12 @@ router.post("/bulk", async (req, res) => {
 
 // DELETE a team
 router.delete("/:id", async (req, res) => {
+  const iid = req.session.user?.iid;
+  if (!iid) {
+    return res.status(401).json({ success: false, message: "Unauthorized User" });
+  }
   const { id } = req.params;
-  const out = await deleteTeam(id);
+  const out = await deleteTeam(id, iid);
   res.json({ success: true, ...out });
 });
 

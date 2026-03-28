@@ -260,6 +260,84 @@ router.get("/dashboard", async (req, res) => {
     const issuesByStatusCategory = groupBy(boardIssues, (x) => x.statusCategory);
     const issuesByAssignee = groupBy(boardIssues, (x) => x.assignee);
 
+    // -------- Top Members --------
+    const openedByMember = {};
+    const todoByMember = {};
+    const backlogByMember = {};
+
+    for (const i of boardIssues) {
+      if (!i.completedAt) {
+        openedByMember[i.assignee] = (openedByMember[i.assignee] || 0) + 1;
+      }
+      if (i.statusCategory === "To Do") {
+        todoByMember[i.assignee] = (todoByMember[i.assignee] || 0) + 1;
+      }
+    }
+
+    for (const i of backlogIssues) {
+      backlogByMember[i.assignee] = (backlogByMember[i.assignee] || 0) + 1;
+    }
+
+    function topMember(map) {
+      let best = null;
+      for (const [member, count] of Object.entries(map)) {
+        if (!best || count > best.count) {
+          best = { member, count };
+        }
+      }
+      return best;
+    }
+
+    const topMembers = {
+      mostOpened: topMember(openedByMember),
+      mostTodo: topMember(todoByMember),
+      mostBacklog: topMember(backlogByMember),
+    };
+
+    // -------- Time Stats --------
+    const completedTimesByMember = {};
+
+    for (const i of boardIssues) {
+      if (!i.completedAt) continue;
+
+      const hrs = hoursBetween(i.createdAt, i.completedAt);
+
+      if (!completedTimesByMember[i.assignee]) {
+        completedTimesByMember[i.assignee] = [];
+      }
+
+      completedTimesByMember[i.assignee].push(hrs);
+    }
+
+    const timeStatsByMember = {};
+
+    for (const [member, times] of Object.entries(completedTimesByMember)) {
+      const avg = mean(times);
+
+      timeStatsByMember[member] = {
+        completedTasks: times.length,
+        avgCompletionHours: Math.round(avg * 100) / 100,
+        stdDevHours: stdDev(times),
+      };
+    }
+
+    // -------- Efficiency --------
+    const allCompletedTimes = Object.values(completedTimesByMember).flat();
+
+    const totalTime = allCompletedTimes.reduce((s, x) => s + x, 0);
+    const totalTasks = allCompletedTimes.length;
+
+    let efficiency = null;
+
+    if (totalTasks > 0 && boardIssues.length > 0) {
+      const projectStart = Math.min(...boardIssues.map(i => new Date(i.createdAt).getTime()));
+      const projectEnd = Date.now();
+
+      const projectDurationHours = (projectEnd - projectStart) / (1000 * 60 * 60);
+
+      efficiency = ((totalTime / totalTasks) / projectDurationHours) * 100;
+    }
+
     const now = new Date().toISOString();
     const openIssues = boardIssues.filter((x) => !x.completedAt);
 
@@ -286,6 +364,9 @@ router.get("/dashboard", async (req, res) => {
       ),
       backlog: { count: backlogIssues.length, issues: backlogIssues },
       longestOpen,
+      topMembers,
+      timeStatsByMember,
+      efficiency,
       drilldowns: { issuesByStatus, issuesByStatusCategory, issuesByAssignee },
     });
   } catch (error) {

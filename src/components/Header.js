@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import "../Header.css";
 import { validateGithubProjectUrl, validateGithubRepoUrl, validateJiraBoardUrl } from "../utils/UrlValidator";
 
-export default function Header({ api, teams, setTeams, selectedTeamID, setSelectedTeamID, refreshTeams }) {
+export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, refreshTeams }) {
     const [showManualModal, setShowManualModal] = useState(false);
     const [showBulkModal, setShowBulkModal] = useState(false);
     // Manual add form fields
@@ -74,8 +74,7 @@ export default function Header({ api, teams, setTeams, selectedTeamID, setSelect
 
         const data = await res.json();
         if (!data?.success) {
-            setError(data?.message || "Failed to add team");
-            return;
+            return setError(data?.message || "Failed to add team");
         };
 
         await refreshTeams();
@@ -84,7 +83,9 @@ export default function Header({ api, teams, setTeams, selectedTeamID, setSelect
         setGithubRepoURL("");
         setGithubProjURL("");
         setError("");
+        setSelectedTeamID('');
         setShowManualModal(false);
+        navigate('/overview');
     };
 
     const handleBulkAddSubmit = async () => {

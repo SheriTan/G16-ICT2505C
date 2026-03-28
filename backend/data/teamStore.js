@@ -25,8 +25,12 @@ function mapRowToTeam(row) {
   };
 }
 
-export async function readTeams() {
-  const [rows] = await pool.query("SELECT * FROM team");
+export async function readTeams(iid) {
+  const [rows] = await pool.query(
+    "SELECT * FROM team WHERE iid = ?",
+    [iid]
+  );
+
   return rows.map(mapRowToTeam);
 }
 
@@ -86,8 +90,12 @@ export async function addTeam(teamObj, instructorId) {
   };
 }
 
-export async function deleteTeam(teamId) {
-  const [result] = await pool.query("DELETE FROM team WHERE tid = ?", [teamId]);
+export async function deleteTeam(teamId, iid) {
+  const [result] = await pool.query(
+    "DELETE FROM team WHERE tid = ? AND iid = ?",
+    [teamId, iid]
+  );
+
   return { deleted: result.affectedRows };
 }
 
