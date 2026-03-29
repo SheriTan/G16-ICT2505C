@@ -28,16 +28,16 @@ CREATE TABLE `team` (
   `tid` int NOT NULL AUTO_INCREMENT,
   `iid` int NOT NULL,
   `teamName` varchar(255) NOT NULL,
-  `jira_boardurl` varchar(512) DEFAULT NULL,
-  `github_repourl` varchar(512) DEFAULT NULL,
-  `github_projurl` varchar(512) DEFAULT NULL,
+  `jira_boardurl` varchar(255) DEFAULT NULL,
+  `github_repourl` varchar(255) DEFAULT NULL,
+  `github_projurl` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`tid`),
   UNIQUE KEY `tid_UNIQUE` (`tid`),
-  UNIQUE KEY `jira_boardurl_UNIQUE` (`jira_boardurl`),
-  UNIQUE KEY `github_projurl_UNIQUE` (`github_projurl`),
+  UNIQUE KEY `jira_UNIQUE` (`iid`,`jira_boardurl`) /*!80000 INVISIBLE */,
+  UNIQUE KEY `github_UNIQUE` (`iid`,`github_repourl`,`github_projurl`),
   KEY `iid_idx` (`iid`),
   CONSTRAINT `iid` FOREIGN KEY (`iid`) REFERENCES `instructor` (`iid`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -46,7 +46,7 @@ CREATE TABLE `team` (
 
 LOCK TABLES `team` WRITE;
 /*!40000 ALTER TABLE `team` DISABLE KEYS */;
-INSERT INTO `team` VALUES (1,1,'KABAS-TestBoard','https://sit-workspace.atlassian.net/jira/software/projects/KT/boards/201',NULL,NULL),(2,1,'@SheriTan\'s test proj',NULL,'https://github.com/SheriTan/mytestrepo1','https://github.com/users/SheriTan/projects/2');
+INSERT INTO `team` VALUES (1,1,'KABAS-TestBoard','https://sit-workspace.atlassian.net/jira/software/projects/KT/boards/201',NULL,NULL),(2,1,'@SheriTan\'s test proj',NULL,'https://github.com/SheriTan/mytestrepo2','https://github.com/users/SheriTan/projects/2'),(3,2,'Manual Add Test','https://sit-workspace.atlassian.net/jira/software/projects/K1/boards/67',NULL,NULL),(4,2,'Manual Add Test 2',NULL,'https://github.com/SheriTan/mytestrepo2','https://github.com/users/SheriTan/projects/2');
 /*!40000 ALTER TABLE `team` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -59,4 +59,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-16 14:04:41
+-- Dump completed on 2026-03-30  4:53:18

@@ -90,6 +90,25 @@ export async function addTeam(teamObj, instructorId) {
   };
 }
 
+export async function updateTeam(teamId, teamObj, instructorId) {
+  const { teamName, jira, github } = teamObj;
+
+  const jiraUrl = jira?.boardUrl || null;
+  const githubRepo = github?.repoUrl || null;
+  const githubProj = github?.projectUrl || null;
+
+  const [result] = await pool.query(
+    `UPDATE team 
+     SET teamName = ?, jira_boardurl = ?, github_repourl = ?, github_projurl = ?
+     WHERE tid = ? AND iid = ?`,
+    [teamName, jiraUrl, githubRepo, githubProj, teamId, instructorId]
+  );
+
+  return {
+    updated: result.affectedRows,
+  };
+}
+
 export async function deleteTeam(teamId, iid) {
   const [result] = await pool.query(
     "DELETE FROM team WHERE tid = ? AND iid = ?",

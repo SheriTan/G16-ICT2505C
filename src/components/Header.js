@@ -5,6 +5,7 @@ import { TbUserFilled, TbDotsVertical, TbTableImport } from "react-icons/tb";
 import * as XLSX from "xlsx";
 import "../Header.css";
 import { validateGithubProjectUrl, validateGithubRepoUrl, validateJiraBoardUrl } from "../utils/UrlValidator";
+import { useAuth } from "../utils/AuthContext";
 
 export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, refreshTeams }) {
     const [showManualModal, setShowManualModal] = useState(false);
@@ -18,7 +19,9 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
     const [importFile, setImportFile] = useState(null);
 
     const [error, setError] = useState('');
+    const [mobileOpen, setMobileOpen] = useState(false);
     const navigate = useNavigate();
+    const { logout } = useAuth();
 
     const handleInputChange = (e) => {
         e.preventDefault();
@@ -247,8 +250,8 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
             <div className="header-left">
                 <button
                     onClick={() => {
-                        navigate('/overview');
                         setSelectedTeamID('');
+                        navigate('/overview');
                     }}
                 >
                     <IoMdHome />
@@ -270,36 +273,107 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                     </select>
                 </div>
                 <div className="header-btn">
-                <button className="add-team-btn"
-                    onClick={() => setShowManualModal(true)}
-                >
-                    <IoMdAdd /> Add Team
-                </button>
-                <button className="misc-team-btn"
-                    onClick={() => setShowBulkModal(true)}
-                >
-                    <TbTableImport /> Import Teams
-                </button>
-                <button className="misc-team-btn"
-                    onClick={downloadExcelTemplate}>
-                    <IoMdDownload /> Download Import Template
-                </button>
+                    <button className="add-team-btn"
+                        onClick={() => setShowManualModal(true)}
+                    >
+                        <IoMdAdd /> Add Team
+                    </button>
+                    <button className="misc-team-btn"
+                        onClick={() => setShowBulkModal(true)}
+                    >
+                        <TbTableImport /> Import Teams
+                    </button>
+                    <button className="misc-team-btn"
+                        onClick={downloadExcelTemplate}>
+                        <IoMdDownload /> Download Import Template
+                    </button>
                 </div>
             </div>
 
             <div className="header-right">
-                <button className="profile-btn"
-                    onClick={() => {
-                        navigate('/profile');
-                        setSelectedTeamID('');
-                    }}
-                >
-                    <TbUserFilled />
-                </button>
-                <button className="mobile-menu">
-                    <TbDotsVertical />
-                </button>
+                <div className="desktop-menu">
+                    <div className="dropdown-menu">
+                        <TbUserFilled />
+                    </div>
 
+                    <div className="account-dropdown-content">
+                        <a onClick={(e) => {
+                            e.preventDefault();
+                            navigate('/profile');
+                            setSelectedTeamID('');
+                        }}>
+                            Profile
+                        </a>
+
+                        <a onClick={async (e) => {
+                            e.preventDefault();
+                            setSelectedTeamID('');
+                            await logout();
+                        }}>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+                <div className='mobile-menu'>
+                    <div className="dropdown-menu"
+                        onClick={() => setMobileOpen(!mobileOpen)}>
+                        <TbDotsVertical />
+                    </div>
+
+                    <div className={`account-dropdown-content ${mobileOpen ? "show" : ""}`}>
+                        <a
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setMobileOpen(false);
+                                setShowManualModal(true);
+                            }}
+                        >
+                            Add Team
+                        </a>
+
+                        <a
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setMobileOpen(false);
+                                setShowBulkModal(true);
+                            }}
+                        >
+                            Import Teams
+                        </a>
+
+                        <a
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setMobileOpen(false);
+                                downloadExcelTemplate(); // ✅ FIXED
+                            }}
+                        >
+                            Download Import Template
+                        </a>
+
+                        <a
+                            onClick={(e) => {
+                                e.preventDefault();
+                                navigate('/profile');
+                                setSelectedTeamID('');
+                                setMobileOpen(false);
+                            }}
+                        >
+                            Profile
+                        </a>
+
+                        <a
+                            onClick={async (e) => {
+                                e.preventDefault();
+                                setSelectedTeamID('');
+                                setMobileOpen(false);
+                                await logout();
+                            }}
+                        >
+                            Logout
+                        </a>
+                    </div>
+                </div>
             </div>
             {
                 showManualModal && (

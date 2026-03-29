@@ -73,5 +73,61 @@ router.post("/logout", (req, res) => {
     });
 });
 
+// Get User
+router.get("/profile", async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ message: "Unauthorized User" });
+    }
+
+    const [rows] = await pool.query(
+        `SELECT email,
+        AES_DECRYPT(jiraToken, ?) AS jiraToken,
+        AES_DECRYPT(githubToken, ?) AS githubToken
+        FROM instructor
+        WHERE iid = ?`,
+        [process.env.SECRET_KEY, process.env.SECRET_KEY, req.session.user.iid]
+    );
+
+    if (rows.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    const user = rows[0];
+
+    res.json({
+        email: user.email,
+        jiraToken: user.jiraToken?.toString() || "",
+        githubToken: user.githubToken?.toString() || ""
+    });
+});
+
+// Update User
+router.put("/profile", async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ message: "Unauthorized User" });
+    }
+
+    const { email, jiraToken, githubToken } = req.body;
+
+    try {
+        await pool.query(`
+            UPDATE instructor
+            SET email = ?,
+                jiraToken = ${jiraToken ? `AES_ENCRYPT(?, '${process.env.SECRET_KEY}')` : 'NULL'},
+                githubToken = ${githubToken ? `AES_ENCRYPT(?, '${process.env.SECRET_KEY}')` : 'NULL'}
+            WHERE iid = ?
+        `, [
+            email,
+            ...(jiraToken ? [jiraToken] : []),
+            ...(githubToken ? [githubToken] : []),
+            req.session.user.iid
+        ]);
+
+        res.json({ success: true });
+
+    } catch (err) {
+        res.status(500).json({ message: "Update failed" });
+    }
+});
 
 export default router;

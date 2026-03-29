@@ -1,14 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { TbEdit } from "react-icons/tb";
 import { MdDelete } from "react-icons/md";
 import "../Team.css";
 
 export default function Team() {
-    const [dashboard, setDashboard] = useState(null);
+    const [dashboard, setDashboard] = useState('');
     const [loadingDash, setLoadingDash] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(null);
+
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editTeam, setEditTeam] = useState({
+        teamName: '',
+        platform: '',
+        jiraBoardUrl: '',
+        githubRepoUrl: '',
+        githubProjectUrl: ''
+    });
+
     const [error, setError] = useState('');
+    const [modalError, setModalError] = useState('');
     const {
         api,
         teams,
@@ -19,9 +30,9 @@ export default function Team() {
     } = useOutletContext();
     const navigate = useNavigate();
 
-    const selectedTeam = teams?.find(
-        t => String(t.id) === String(selectedTeamID)
-    );
+    const selectedTeam = useMemo(() => {
+        return teams?.find(t => String(t.id) === String(selectedTeamID));
+    }, [teams, selectedTeamID]);
 
     // Dashboard Statistics Data Handling
     const statusSummary =
@@ -55,6 +66,55 @@ export default function Team() {
         return `${api}/api/jira/dashboard?teamId=${encodeURIComponent(selectedTeamID)}`;
     }
 
+    const handleUpdate = async () => {
+        const { teamName, jiraBoardUrl, githubRepoUrl, githubProjectUrl } = editTeam
+        if (!jiraBoardUrl && (!githubRepoUrl || !githubProjectUrl)) {
+            setModalError("Please provide either a Jira or GitHub Kanban Board URL");
+            return;
+        }
+
+        if (jiraBoardUrl && (githubRepoUrl || githubProjectUrl)) {
+            setModalError("You can only provide one Kanban Board URL (Jira OR GitHub)");
+            return;
+        }
+
+        if (!teamName) {
+            setModalError("Please provide a Team Name")
+            return;
+        }
+
+        const payload = {
+            ...editTeam,
+            platform: jiraBoardUrl ? "jira" : "github"
+        };
+
+        const res = await fetch(`${api}/api/teams/${encodeURIComponent(selectedTeam.id)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!data?.success) {
+            return setModalError(data?.message || "Failed to update team");
+        };
+
+        setModalError('');
+        await refreshTeams();
+        setDashboard('');
+        setLastUpdated(null);
+        setSelectedTeamID(prev => prev);
+        setEditTeam({
+            teamName: '',
+            platform: '',
+            jiraBoardUrl: '',
+            githubRepoUrl: '',
+            githubProjectUrl: ''
+        });
+        setShowEditModal(false);
+    }
+
     const handleDelete = async () => {
         try {
             if (!selectedTeam) {
@@ -81,6 +141,16 @@ export default function Team() {
         } catch (e) {
             setError(e.message);
         }
+    }
+
+    const handleInputChange = (e) => {
+        e.preventDefault();
+        const { name, value } = e.target;
+
+        setEditTeam((prevState) => ({
+            ...prevState,
+            [name]: value
+        }));
     }
 
     function StatusPanel({ status, items }) {
@@ -172,6 +242,7 @@ export default function Team() {
         if (!selectedTeam) return;
         setDashboard('');
         setLastUpdated(null);
+        setError('');
 
         let intervalId;
         let abortCtrl = new AbortController();
@@ -192,7 +263,6 @@ export default function Team() {
                 }
 
                 setDashboard(data);
-                console.log(data);
                 setLastUpdated(new Date());
 
             } catch (e) {
@@ -208,48 +278,128 @@ export default function Team() {
             loadDashboard(true); // silent refresh
         }, 10000);
 
+
         return () => {
             abortCtrl.abort();
             clearInterval(intervalId);
         };
 
-    }, [selectedTeamID]);
+    }, [selectedTeam]);
 
     return (
         <div className='dashboardWrapper'>
-            <div className='dashboardHeader'>
-                <div className='dashboardLeftHeader'>
-                    <h2>{selectedTeam.teamName}</h2>
-                    {lastUpdated && (
-                        <p>Last updated: {lastUpdated.toLocaleTimeString()}</p>
-                    )}
-                </div>
-                <div className='dashboardRightHeader'>
-                    <button className="editbtn">
-                        <TbEdit />
-                        <span>Edit</span>
-                    </button>
-                    <button className="delbtn"
-                        onClick={() => handleDelete()}>
-                        <MdDelete />
-                        <span>Delete</span>
-                    </button>
-                </div>
-            </div>
+            {error ? (
+                <p className="error">{error}</p>
+            ) : !dashboard && loadingDash ? (
+                <p>Loading dashboard...</p>
+            ) : (
+                dashboard && (
+                    <>
+                        <div className='dashboardHeader'>
+                            <div className='dashboardLeftHeader'>
+                                <h2>{selectedTeam?.teamName}</h2>
+                                {lastUpdated && (
+                                    <p>Last updated: {lastUpdated.toLocaleTimeString()}</p>
+                                )}
+                            </div>
 
-            {error ?
-                <p className="error">{error}</p> :
-                (!dashboard && loadingDash) ? <p>Loading dashboard...</p>
-                    : dashboard && (
+                            <div className='dashboardRightHeader'>
+                                <button className="editbtn" onClick={() => {
+                                    setEditTeam({
+                                        teamName: selectedTeam?.teamName,
+                                        jiraBoardUrl: selectedTeam?.jira?.boardUrl || '',
+                                        githubRepoUrl: selectedTeam?.github?.repoUrl || '',
+                                        githubProjectUrl: selectedTeam?.github?.projectUrl || ''
+                                    })
+                                    setShowEditModal(true);
+                                }}>
+                                    <TbEdit />
+                                    <span>Edit</span>
+                                </button>
+
+                                <button className="delbtn" onClick={handleDelete}>
+                                    <MdDelete />
+                                    <span>Delete</span>
+                                </button>
+                            </div>
+                            {
+                                showEditModal && (
+                                    <div className="overlay">
+                                        <div className="modal">
+                                            <div>
+                                                <h2>Edit Team</h2>
+                                                <p>Copy the URL from Jira / GitHub’s Kanban board page: e.g.,</p>
+                                                <ul>
+                                                    <li>(Jira) https://example-workspace.atlassian.net/jira/software/projects/example/boards/1</li>
+                                                    <li>(GitHub) https://github.com/users/ExampleUser/projects/1</li>
+                                                </ul>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                name='teamName'
+                                                placeholder="Team Name"
+                                                value={editTeam.teamName}
+                                                onChange={(e) => handleInputChange(e)}
+                                            />
+                                            <input
+                                                type="text"
+                                                name='jiraBoardUrl'
+                                                placeholder="https://<workspace>/jira/software/projects/<key>/boards/<ID>"
+                                                value={editTeam.jiraBoardUrl}
+                                                onChange={(e) => handleInputChange(e)}
+                                                disabled={editTeam.githubRepoUrl?.length > 0 || editTeam.githubProjectUrl.length > 0}
+                                            />
+                                            <input
+                                                type="text"
+                                                name='githubRepoUrl'
+                                                placeholder="https://github.com/<owner>/<repo>"
+                                                value={editTeam.githubRepoUrl}
+                                                onChange={(e) => handleInputChange(e)}
+                                                disabled={editTeam.jiraBoardUrl?.length > 0}
+                                            />
+                                            <input
+                                                type="text"
+                                                name='githubProjectUrl'
+                                                placeholder="https://github.com/users/<owner>/projects/<ID>"
+                                                value={editTeam.githubProjectUrl}
+                                                onChange={(e) => handleInputChange(e)}
+                                                disabled={editTeam.jiraBoardUrl?.length > 0}
+                                            />
+                                            {modalError && <p className="error">{modalError}</p>}
+                                            <div className='linebreak' />
+                                            <div className="modalActions">
+                                                <button className="misc-team-btn"
+                                                    onClick={() => {
+                                                        setModalError("");
+                                                        setEditTeam({
+                                                            teamName: selectedTeam?.teamName || '',
+                                                            platform: '',
+                                                            jiraBoardUrl: selectedTeam?.jira?.boardUrl || '',
+                                                            githubRepoUrl: selectedTeam?.github?.repoUrl || '',
+                                                            githubProjectUrl: selectedTeam?.github?.projectUrl || ''
+                                                        });
+                                                        setShowEditModal(false);
+                                                    }}>Cancel</button>
+
+                                                <button className="add-team-btn"
+                                                    onClick={() => handleUpdate()}
+                                                >
+                                                    Edit
+                                                </button>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                )
+                            }
+                        </div>
                         <div>
                             {/* Status Summary */}
                             <h2 style={{ textAlign: "center" }}>Status Summary (On Board)</h2>
                             {Object.keys(statusSummary).length ? (
                                 <ul style={{ maxWidth: 380, margin: "0 auto" }}>
                                     {Object.entries(statusSummary).map(([k, v]) => (
-                                        <li key={k}>
-                                            {k}: {v}
-                                        </li>
+                                        <li key={k}>{k}: {v}</li>
                                     ))}
                                 </ul>
                             ) : (
@@ -263,9 +413,7 @@ export default function Team() {
                             {Object.keys(memberCounts).length ? (
                                 <ul style={{ maxWidth: 420, margin: "0 auto" }}>
                                     {Object.entries(memberCounts).map(([k, v]) => (
-                                        <li key={k}>
-                                            {k}: {v} tasks
-                                        </li>
+                                        <li key={k}>{k}: {v} tasks</li>
                                     ))}
                                 </ul>
                             ) : (
@@ -312,9 +460,7 @@ export default function Team() {
                                             <h3 style={{ textAlign: "center" }}>Backlog by Member</h3>
                                             <ul style={{ maxWidth: 420, margin: "0 auto" }}>
                                                 {Object.entries(dashboard.backlog.byMember).map(([k, v]) => (
-                                                    <li key={k}>
-                                                        {k}: {v}
-                                                    </li>
+                                                    <li key={k}>{k}: {v}</li>
                                                 ))}
                                             </ul>
                                         </>
@@ -343,7 +489,6 @@ export default function Team() {
                             {issuesByStatusCategory && (
                                 <>
                                     <h2 style={{ textAlign: "center" }}>Issues by Status</h2>
-
                                     <div style={{ maxWidth: 920, margin: "12px auto" }}>
                                         {Object.entries(issuesByStatusCategory).map(([status, list]) => (
                                             <StatusPanel key={status} status={status} items={list || []} />
@@ -354,9 +499,8 @@ export default function Team() {
 
                             <hr />
 
-                            {/* Time Stats (Avg & Std Dev) */}
+                            {/* Time Stats */}
                             <h2 style={{ textAlign: "center" }}>Time Stats by Member</h2>
-
                             {Object.keys(timeStatsByMember).length ? (
                                 <ul style={{ maxWidth: 500, margin: "0 auto" }}>
                                     {Object.entries(timeStatsByMember).map(([member, stats]) => (
@@ -373,9 +517,9 @@ export default function Team() {
                             )}
 
                             <hr />
+
                             {/* Efficiency */}
                             <h2 style={{ textAlign: "center" }}>Project Efficiency</h2>
-
                             {efficiency !== null ? (
                                 <div style={{ textAlign: "center" }}>
                                     Efficiency: {efficiency.toFixed(2)}%
@@ -384,7 +528,9 @@ export default function Team() {
                                 <div style={{ textAlign: "center" }}>No efficiency data.</div>
                             )}
                         </div>
-                    )}
+                    </>
+                )
+            )}
         </div>
     );
 }

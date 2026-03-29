@@ -3,7 +3,8 @@ import {
   addTeam,
   bulkAddTeams,
   deleteTeam,
-  readTeams
+  readTeams,
+  updateTeam
 } from "../data/teamStore.js";
 
 import { validateJiraBoardUrl, validateGithubRepoUrl, validateGithubProjectUrl } from "../../src/utils/UrlValidator.js";
@@ -165,6 +166,44 @@ router.post("/bulk", async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// UPDATE a team
+router.put("/:id", async (req, res) => {
+  try {
+    const iid = req.session.user?.iid;
+
+    if (!iid) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized User"
+      });
+    }
+
+    const { id } = req.params;
+
+    const team = buildTeamFromPayload(req.body);
+
+    const result = await updateTeam(id, team, iid);
+
+    if (!result.updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Team not found or not owned by user"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Team updated successfully"
+    });
+
+  } catch (e) {
+    res.status(400).json({
+      success: false,
+      message: e.message
+    });
   }
 });
 

@@ -6,6 +6,7 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     checkSession();
@@ -15,9 +16,11 @@ export function AuthProvider({ children }) {
     try {
       const res = await API.get("/session");
       setAuthenticated(true);
+      setUser(res.data.user);
       return res.data;
     } catch {
       setAuthenticated(false);
+      setUser(null);
       return null;
     } finally {
       setLoading(false);
@@ -39,8 +42,19 @@ export function AuthProvider({ children }) {
     setAuthenticated(false);
   };
 
+  const getProfile = async () => {
+    const res = await API.get("/profile");
+    setUser(res.data);
+    return res.data;
+  };
+
+  const updateProfile = async (data) => {
+    await API.put("/profile", data);
+    return getProfile();
+  };
+
   return (
-    <AuthContext.Provider value={{ authenticated, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ authenticated, loading, login, register, logout, getProfile, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -66,15 +66,54 @@
     gap: 12px;
 }
 
-.profile-icon {
-    font-size: 20px;
+.desktop-menu {
+    position: relative;
+}
+
+.account-dropdown-content {
+    display: none;
+    position: absolute;
+    background: #f1f1f1;
+    top: 100%;
+    right: 0;
+    width: 120px;
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    padding: 8px 0;
+    z-index: 1000;
+}
+
+.account-dropdown-content a {
+    padding: 10px 16px;
+    display: block;
+    text-decoration: none;
+    color: #333;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.account-dropdown-content a:hover {
+    background: #e4e4e4;
+}
+
+.desktop-menu:hover .account-dropdown-content {
+    display: block;
+}
+
+.dropdown-menu {
+    border: none;
+    background: none;
+    cursor: pointer;
+
+    padding: 8px;
+    border-radius: 50%;
 }
 
 .mobile-menu {
     display: none;
-    border: none;
-    background: none;
-    font-size: 20px;
+    position: relative;
 }
 
 .overlay {
@@ -135,8 +174,8 @@
     .header-btn {
         display: none;
     }
-    
-    .profile-btn {
+
+    .desktop-menu {
         display: none;
     }
 
@@ -144,4 +183,16 @@
         display: block;
     }
 
+    .mobile-menu .account-dropdown-content.show {
+        display: block;
+    }
+
+    .account-dropdown-content {
+        width: 100px;
+    }
+
+    .account-dropdown-content a {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
 }
