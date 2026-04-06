@@ -1,0 +1,115 @@
+/* ── Overview page ───────────────────────────────────────────── */
+.overview-root { padding: 28px 32px; font-family: 'Segoe UI', sans-serif; }
+.overview-title { font-size: 22px; font-weight: 700; color: #1a1f3c; margin: 0 0 20px; }
+.overview-empty { color: #9aa0b8; font-size: 14px; margin-top: 12px; }
+
+/* ── Error banner ─────────────────────────────────────────────── */
+.overview-error-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: #fff8f0;
+    border: 1.5px solid #e8a020;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+}
+.oeb-icon {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #e8a020; color: #fff;
+    font-size: 16px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+}
+.oeb-heading { font-size: 14px; font-weight: 700; color: #7a4800; margin-bottom: 6px; }
+.oeb-detail  { font-size: 13px; color: #8a6020; line-height: 1.6; }
+.oeb-team-pill {
+    display: inline-block;
+    background: #fde8c0; color: #7a4800;
+    border-radius: 20px; padding: 1px 10px;
+    font-size: 12px; font-weight: 700;
+    margin-right: 4px; cursor: pointer;
+}
+.oeb-team-pill:hover { background: #fcd090; }
+
+/* ── Team grid ────────────────────────────────────────────────── */
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+/* ── Team card ────────────────────────────────────────────────── */
+.ov-card {
+    background: #fff;
+    border: 1.5px solid #e8eaf0;
+    border-radius: 12px;
+    padding: 18px 18px 14px;
+    cursor: pointer;
+    position: relative;
+    transition: box-shadow 0.15s, transform 0.1s;
+}
+.ov-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.09); transform: translateY(-2px); }
+.ov-card-error { border-color: #f0a020; background: #fffbf5; }
+.ov-card-ok    { border-color: #d0eadc; }
+
+/* Status dot top-right */
+.ov-dot {
+    position: absolute; top: 14px; right: 14px;
+    width: 10px; height: 10px; border-radius: 50%;
+}
+.ov-dot-ok       { background: #2ecc71; }
+.ov-dot-error    { background: #e67e22; }
+.ov-dot-checking { background: #bdc3c7; animation: pulse 1.2s ease-in-out infinite; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.ov-card-name {
+    font-size: 15px; font-weight: 700; color: #1a1f3c;
+    margin-bottom: 8px; padding-right: 20px;
+}
+
+/* Platform badge */
+.ov-card-platform { margin-bottom: 10px; }
+.ov-platform-badge {
+    display: inline-block;
+    font-size: 11px; font-weight: 700;
+    padding: 2px 9px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+.ov-platform-jira   { background: #e8f0ff; color: #1a4fbf; }
+.ov-platform-github { background: #e6f8ee; color: #107830; }
+
+/* Connection status labels */
+.ov-ok-label {
+    font-size: 11px; color: #27ae60; font-weight: 600;
+    display: flex; align-items: center; gap: 4px;
+}
+.ov-checking-label { font-size: 11px; color: #b0b8cc; }
+
+/* Error label */
+.ov-error-label {
+    margin-top: 8px;
+    font-size: 11px; font-weight: 800;
+    color: #c0392b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.ov-error-icon { margin-right: 4px; }
+.ov-error-msg {
+    font-size: 11px; font-weight: 400;
+    color: #9a6020;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 3px;
+    line-height: 1.4;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .overview-root { padding: 16px; }
+    .overview-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+}
+@media (max-width: 380px) {
+    .overview-grid { grid-template-columns: 1fr; }
+}

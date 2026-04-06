@@ -1,0 +1,46 @@
+/* ── Landing page — split panel layout ── */
+.landing-root { display:flex; min-height:100vh; font-family:'Segoe UI',sans-serif; }
+
+.landing-brand { flex:0 0 42%; background:#1a1f3c; display:flex; align-items:center; justify-content:center; padding:48px 40px; }
+.landing-brand-inner { max-width:340px; }
+.landing-logo { width:64px; height:64px; border-radius:16px; background:#33209f; color:#fff; font-size:32px; font-weight:800; display:flex; align-items:center; justify-content:center; margin-bottom:24px; }
+.landing-title { font-size:42px; font-weight:800; color:#fff; margin:0 0 6px; letter-spacing:-1px; }
+.landing-subtitle { color:#8b92b8; font-size:15px; margin:0 0 36px; }
+.landing-features { display:flex; flex-direction:column; gap:14px; }
+.lf-item { display:flex; align-items:center; gap:10px; color:#c5cae8; font-size:14px; }
+.lf-dot { width:7px; height:7px; border-radius:50%; background:#33209f; flex-shrink:0; }
+
+.landing-form-panel { flex:1; display:flex; align-items:center; justify-content:center; padding:48px 32px; background:#f8f9fc; }
+.landing-form-box { width:100%; max-width:400px; background:#fff; border-radius:16px; padding:40px 36px; box-shadow:0 4px 24px rgba(0,0,0,0.08); }
+.landing-form-title { font-size:26px; font-weight:700; color:#1a1f3c; margin:0 0 4px; }
+.landing-form-sub { color:#7a8099; font-size:14px; margin:0 0 28px; }
+
+.lf-group { display:flex; flex-direction:column; gap:6px; margin-bottom:18px; }
+.lf-label { font-size:13px; font-weight:600; color:#3a3f5c; }
+.lf-optional { font-weight:400; color:#9aa0b8; }
+.lf-input { padding:11px 14px; border:1.5px solid #e2e5f0; border-radius:8px; font-size:14px; color:#1a1f3c; outline:none; background:#fafbff; }
+.lf-input:focus { border-color:#33209f; background:#fff; }
+.lf-error { color:#e03535; font-size:13px; margin:-6px 0 12px; }
+.lf-btn-primary { width:100%; padding:12px; background:#33209f; color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; margin-top:4px; }
+.lf-btn-primary:hover { background:#27187e; }
+.lf-register-prompt { text-align:center; font-size:13px; color:#7a8099; margin:16px 0 0; }
+.lf-link-btn { background:none; border:none; color:#33209f; font-size:13px; font-weight:600; cursor:pointer; padding:0; text-decoration:underline; }
+
+.landing-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+.landing-modal { background:#fff; border-radius:16px; padding:36px 32px; width:100%; max-width:440px; max-height:90vh; overflow-y:auto; position:relative; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+.lm-close { position:absolute; top:16px; right:16px; background:#f0f0f8; border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; font-size:14px; color:#555; display:flex; align-items:center; justify-content:center; }
+.lm-close:hover { background:#e0e0ee; }
+.lm-title { font-size:22px; font-weight:700; color:#1a1f3c; margin:0 0 4px; }
+.lm-sub { font-size:13px; color:#7a8099; margin:0 0 24px; }
+
+@media (max-width:768px) {
+  .landing-root { flex-direction:column; }
+  .landing-brand { flex:none; padding:28px 24px; }
+  .landing-features { display:none; }
+  .landing-brand-inner { display:flex; flex-direction:column; align-items:center; text-align:center; }
+  .landing-logo { margin-bottom:10px; }
+  .landing-title { font-size:30px; }
+  .landing-subtitle { margin-bottom:0; }
+  .landing-form-panel { padding:20px 16px; align-items:flex-start; }
+  .landing-form-box { padding:24px 18px; box-shadow:none; border:1px solid #e8eaf0; }
+}

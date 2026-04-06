@@ -9,35 +9,30 @@ import { useAuth } from "../utils/AuthContext";
 
 export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, refreshTeams }) {
     const [showManualModal, setShowManualModal] = useState(false);
-    const [showBulkModal, setShowBulkModal] = useState(false);
-    // Manual add form fields
-    const [teamName, setTeamName] = useState('');
-    const [jiraURL, setJiraURL] = useState('');
-    const [githubRepoURL, setGithubRepoURL] = useState('');
-    const [githubProjURL, setGithubProjURL] = useState('');
-    // Import fields
-    const [importFile, setImportFile] = useState(null);
+    const [showBulkModal,   setShowBulkModal]   = useState(false);
 
-    const [error, setError] = useState('');
+    const [teamName,       setTeamName]       = useState('');
+    const [jiraURL,        setJiraURL]        = useState('');
+    const [githubRepoURL,  setGithubRepoURL]  = useState('');
+    const [githubProjURL,  setGithubProjURL]  = useState('');
+    const [importFile,     setImportFile]     = useState(null);
+
+    const [error,      setError]      = useState('');
     const [mobileOpen, setMobileOpen] = useState(false);
+
     const navigate = useNavigate();
     const { logout } = useAuth();
 
     const handleInputChange = (e) => {
         e.preventDefault();
         const { name, value } = e.target;
-
         switch (name) {
-            case 'jiraURL': setJiraURL(value);
-                break;
-            case 'githubRepoURL': setGithubRepoURL(value);
-                break;
-            case 'githubProjURL': setGithubProjURL(value);
-                break;
-            case 'teamName': setTeamName(value);
-                break;
+            case 'jiraURL':       setJiraURL(value);       break;
+            case 'githubRepoURL': setGithubRepoURL(value); break;
+            case 'githubProjURL': setGithubProjURL(value); break;
+            case 'teamName':      setTeamName(value);      break;
         }
-    }
+    };
 
     const handleManualAddSubmit = async () => {
         if (!jiraURL && (!githubRepoURL || !githubProjURL)) {
@@ -51,22 +46,14 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
         }
 
         if (!teamName) {
-            setError("Please provide a Team Name")
+            setError("Please provide a Team Name");
             return;
         }
 
+        // Build the payload based on which platform URL was provided
         const payload = jiraURL
-            ? {
-                platform: "jira",
-                teamName: teamName,
-                jiraBoardUrl: jiraURL,
-            }
-            : {
-                platform: "github",
-                teamName: teamName,
-                githubRepoUrl: githubRepoURL,
-                githubProjectUrl: githubProjURL,
-            };
+            ? { platform: "jira",   teamName, jiraBoardUrl: jiraURL }
+            : { platform: "github", teamName, githubRepoUrl: githubRepoURL, githubProjectUrl: githubProjURL };
 
         const res = await fetch(`${api}/api/teams`, {
             method: "POST",
@@ -78,14 +65,11 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
         const data = await res.json();
         if (!data?.success) {
             return setError(data?.message || "Failed to add team");
-        };
+        }
 
         await refreshTeams();
-        setTeamName("");
-        setJiraURL("");
-        setGithubRepoURL("");
-        setGithubProjURL("");
-        setError("");
+        setTeamName(''); setJiraURL(''); setGithubRepoURL(''); setGithubProjURL('');
+        setError('');
         setSelectedTeamID('');
         setShowManualModal(false);
         navigate('/overview');
@@ -94,78 +78,88 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
     const handleBulkAddSubmit = async () => {
         try {
             if (!importFile) {
-                return setError("Please upload an import team excel file")
-            };
+                return setError("Please upload an import team excel file");
+            }
 
             if (!importFile.name.startsWith('KABAS Import Teams Template')) {
-                return setError("Incorrect excel file uploaded (Correct Filename: KABAS Import Teams Template.xlsx)")
+                return setError("Incorrect excel file uploaded (Correct Filename: KABAS Import Teams Template.xlsx)");
             }
 
             const buffer = await importFile.arrayBuffer();
-            const wb = XLSX.read(buffer, { type: "array" });
-            const ws = wb.Sheets[wb.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+            const wb     = XLSX.read(buffer, { type: "array" });
+            const ws     = wb.Sheets[wb.SheetNames[0]];
+            const rows   = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
             if (!rows.length) {
-                return setError("Excel file contains no records")
+                return setError("Excel file contains no records");
             }
 
-            let dataErrors = [];
+            let dataErrors  = [];
             let bulkPayload = [];
-            // Map rows to API payload
-            const teamsPayload = rows.map((row, index) => {
+
+            rows.map((row, index) => {
+                // Normalise all column headers to lowercase to handle casing differences
                 const header = Object.fromEntries(
                     Object.entries(row).map(([key, value]) => [key.toLowerCase().trim(), value])
                 );
 
-                let rowNum = index + 2;
+                const rowNum          = index + 2;
+                const platform        = String(header.platform        ?? "").trim().toLowerCase();
+                const teamName        = String(header.teamname        ?? "").trim();
+                const jiraBoardUrl    = String(header.jiraboardurl    ?? "").trim();
+                const githubRepoUrl   = String(header.githubrepourl   ?? "").trim();
+                const githubProjectUrl= String(header.githubprojecturl?? "").trim();
 
-                const platform = String(header.platform ?? "").trim().toLowerCase();
-                const teamName = String(header.teamname ?? "").trim();
-                const jiraBoardUrl = String(header.jiraboardurl ?? "").trim();
-                const githubRepoUrl = String(header.githubrepourl ?? "").trim();
-                const githubProjectUrl = String(header.githubprojecturl ?? "").trim();
+                // Track whether this specific row has a problem
+                let rowHasError = false;
 
                 if (!teamName) {
-                    dataErrors.push(`Row ${rowNum}: Missing team name`)
+                    dataErrors.push(`Row ${rowNum}: Missing team name`);
+                    rowHasError = true;
                 }
 
-                if (platform == 'jira') {
+                // FIX: platform validation added — blank or misspelled platform was silently skipped
+                if (platform !== 'jira' && platform !== 'github') {
+                    dataErrors.push(`Row ${rowNum}: Platform must be 'jira' or 'github', got '${platform}'`);
+                    rowHasError = true;
+                }
+
+                if (platform === 'jira') {
                     if (!jiraBoardUrl) {
-                        dataErrors.push(`Row ${rowNum}: Missing Jira board URL`)
-                    }
-                    else if (!validateJiraBoardUrl(jiraBoardUrl)) {
-                        dataErrors.push(`Row ${rowNum}: Invalid Jira board URL. Expected /projects/<KEY>/boards/<ID>`)
+                        dataErrors.push(`Row ${rowNum}: Missing Jira board URL`);
+                        rowHasError = true;
+                    } else if (!validateJiraBoardUrl(jiraBoardUrl)) {
+                        dataErrors.push(`Row ${rowNum}: Invalid Jira board URL. Expected /projects/<KEY>/boards/<ID>`);
+                        rowHasError = true;
                     }
                 }
 
-                if (platform == 'github') {
+                if (platform === 'github') {
                     if (!githubRepoUrl) {
-                        dataErrors.push(`Row ${rowNum}: Missing GitHub repo URL`)
-                    }
-                    else if (!validateGithubRepoUrl(githubRepoUrl)) {
-                        dataErrors.push(`Row ${rowNum}: Invalid GitHub repo URL. Expected https://github.com/<owner>/<repo>`)
+                        dataErrors.push(`Row ${rowNum}: Missing GitHub repo URL`);
+                        rowHasError = true;
+                    } else if (!validateGithubRepoUrl(githubRepoUrl)) {
+                        dataErrors.push(`Row ${rowNum}: Invalid GitHub repo URL. Expected https://github.com/<owner>/<repo>`);
+                        rowHasError = true;
                     }
 
                     if (!githubProjectUrl) {
-                        dataErrors.push(`Row ${rowNum}: Missing GitHub project URL`)
-                    }
-                    else if (!validateGithubProjectUrl(githubProjectUrl)) {
-                        dataErrors.push(`Row ${rowNum}: Invalid GitHub project URL. Expected https://github.com/<users or orgs>/<owner>/projects/<num>`)
+                        dataErrors.push(`Row ${rowNum}: Missing GitHub project URL`);
+                        rowHasError = true;
+                    } else if (!validateGithubProjectUrl(githubProjectUrl)) {
+                        dataErrors.push(`Row ${rowNum}: Invalid GitHub project URL. Expected https://github.com/<users or orgs>/<owner>/projects/<num>`);
+                        rowHasError = true;
                     }
                 }
 
-                if (dataErrors.length == 0) {
-                    bulkPayload.push({
-                        platform: platform,
-                        teamName: teamName,
-                        jiraBoardUrl: jiraBoardUrl,
-                        githubRepoUrl: githubRepoUrl,
-                        githubProjectUrl: githubProjectUrl,
-                    });
+                // FIX: was checking global dataErrors.length — valid rows after a bad row were excluded
+                // Now uses a per-row flag so each row is evaluated independently
+                if (!rowHasError) {
+                    bulkPayload.push({ platform, teamName, jiraBoardUrl, githubRepoUrl, githubProjectUrl });
                 }
-            })
+            });
 
+            // Show all row errors at once so the user can fix them in one go
             if (dataErrors.length > 0) {
                 return setError(dataErrors);
             }
@@ -183,14 +177,15 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
             }
 
             await refreshTeams();
-            setError("");
+            setError('');
             setShowBulkModal(false);
 
         } catch (e) {
             setError(e.message);
         }
-    }
+    };
 
+    // Generates and downloads the Excel template the instructor fills in before bulk import
     function downloadExcelTemplate() {
         const rows = [
             {
@@ -210,13 +205,7 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
         ];
 
         const ws = XLSX.utils.json_to_sheet(rows, {
-            header: [
-                "platform",
-                "teamName",
-                "jiraBoardUrl",
-                "githubRepoUrl",
-                "githubProjectUrl",
-            ],
+            header: ["platform","teamName","jiraBoardUrl","githubRepoUrl","githubProjectUrl"],
         });
 
         ws["!cols"] = [
@@ -227,17 +216,17 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
             { wch: 50 }, // githubProjectUrl
         ];
 
-        const wb = XLSX.utils.book_new();
+        const wb       = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Teams");
 
         const arrayBuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        const blob = new Blob([arrayBuf], {
+        const blob     = new Blob([arrayBuf], {
             type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         });
 
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
+        const a   = document.createElement("a");
+        a.href     = url;
         a.download = "KABAS Import Teams Template.xlsx";
         document.body.appendChild(a);
         a.click();
@@ -248,21 +237,18 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
     return (
         <header className="header">
             <div className="header-left">
-                <button
-                    onClick={() => {
-                        setSelectedTeamID('');
-                        navigate('/overview');
-                    }}
-                >
+                <button onClick={() => { setSelectedTeamID(''); navigate('/overview'); }}>
                     <IoMdHome />
                 </button>
+
+                {/* Team selector dropdown — navigates to /team/:id on change */}
                 <div style={{ marginTop: 10 }}>
                     <select
                         value={selectedTeamID}
                         onChange={(e) => {
                             const id = e.target.value;
                             setSelectedTeamID(id);
-                            navigate(`/team/${id}`)
+                            navigate(`/team/${id}`);
                         }}>
                         <option value="" disabled>Select Team</option>
                         {teams.map((team) => (
@@ -272,19 +258,15 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                         ))}
                     </select>
                 </div>
+
                 <div className="header-btn">
-                    <button className="add-team-btn"
-                        onClick={() => setShowManualModal(true)}
-                    >
+                    <button className="add-team-btn" onClick={() => setShowManualModal(true)}>
                         <IoMdAdd /> Add Team
                     </button>
-                    <button className="misc-team-btn"
-                        onClick={() => setShowBulkModal(true)}
-                    >
+                    <button className="misc-team-btn" onClick={() => setShowBulkModal(true)}>
                         <TbTableImport /> Import Teams
                     </button>
-                    <button className="misc-team-btn"
-                        onClick={downloadExcelTemplate}>
+                    <button className="misc-team-btn" onClick={downloadExcelTemplate}>
                         <IoMdDownload /> Download Import Template
                     </button>
                 </div>
@@ -292,204 +274,80 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
 
             <div className="header-right">
                 <div className="desktop-menu">
-                    <div className="dropdown-menu">
-                        <TbUserFilled />
-                    </div>
-
+                    <div className="dropdown-menu"><TbUserFilled /></div>
                     <div className="account-dropdown-content">
-                        <a onClick={(e) => {
-                            e.preventDefault();
-                            navigate('/profile');
-                            setSelectedTeamID('');
-                        }}>
+                        <a onClick={(e) => { e.preventDefault(); navigate('/profile'); setSelectedTeamID(''); }}>
                             Profile
                         </a>
-
-                        <a onClick={async (e) => {
-                            e.preventDefault();
-                            setSelectedTeamID('');
-                            await logout();
-                        }}>
+                        <a onClick={async (e) => { e.preventDefault(); setSelectedTeamID(''); await logout(); }}>
                             Logout
                         </a>
                     </div>
                 </div>
+
                 <div className='mobile-menu'>
-                    <div className="dropdown-menu"
-                        onClick={() => setMobileOpen(!mobileOpen)}>
+                    <div className="dropdown-menu" onClick={() => setMobileOpen(!mobileOpen)}>
                         <TbDotsVertical />
                     </div>
-
                     <div className={`account-dropdown-content ${mobileOpen ? "show" : ""}`}>
-                        <a
-                            onClick={(e) => {
-                                e.preventDefault();
-                                setMobileOpen(false);
-                                setShowManualModal(true);
-                            }}
-                        >
-                            Add Team
-                        </a>
-
-                        <a
-                            onClick={(e) => {
-                                e.preventDefault();
-                                setMobileOpen(false);
-                                setShowBulkModal(true);
-                            }}
-                        >
-                            Import Teams
-                        </a>
-
-                        <a
-                            onClick={(e) => {
-                                e.preventDefault();
-                                setMobileOpen(false);
-                                downloadExcelTemplate(); // ✅ FIXED
-                            }}
-                        >
-                            Download Import Template
-                        </a>
-
-                        <a
-                            onClick={(e) => {
-                                e.preventDefault();
-                                navigate('/profile');
-                                setSelectedTeamID('');
-                                setMobileOpen(false);
-                            }}
-                        >
-                            Profile
-                        </a>
-
-                        <a
-                            onClick={async (e) => {
-                                e.preventDefault();
-                                setSelectedTeamID('');
-                                setMobileOpen(false);
-                                await logout();
-                            }}
-                        >
-                            Logout
-                        </a>
+                        <a onClick={(e) => { e.preventDefault(); setMobileOpen(false); setShowManualModal(true); }}>Add Team</a>
+                        <a onClick={(e) => { e.preventDefault(); setMobileOpen(false); setShowBulkModal(true); }}>Import Teams</a>
+                        <a onClick={(e) => { e.preventDefault(); setMobileOpen(false); downloadExcelTemplate(); }}>Download Import Template</a>
+                        <a onClick={(e) => { e.preventDefault(); navigate('/profile'); setSelectedTeamID(''); setMobileOpen(false); }}>Profile</a>
+                        <a onClick={async (e) => { e.preventDefault(); setSelectedTeamID(''); setMobileOpen(false); await logout(); }}>Logout</a>
                     </div>
                 </div>
             </div>
-            {
-                showManualModal && (
-                    <div className="overlay">
-                        <div className="modal">
-                            <div>
-                                <h2>Add Team</h2>
-                                <p>Copy the URL from Jira / GitHub’s Kanban board page: e.g.,</p>
-                                <ul>
-                                    <li>(Jira) https://example-workspace.atlassian.net/jira/software/projects/example/boards/1</li>
-                                    <li>(GitHub) https://github.com/users/ExampleUser/projects/1</li>
-                                </ul>
-                            </div>
-                            <input
-                                type="text"
-                                name='teamName'
-                                placeholder="Team Name"
-                                value={teamName}
-                                onChange={(e) => handleInputChange(e)}
-                            />
-                            <input
-                                type="text"
-                                name='jiraURL'
-                                placeholder="https://<workspace>/jira/software/projects/<key>/boards/<ID>"
-                                value={jiraURL}
-                                onChange={(e) => handleInputChange(e)}
-                                disabled={githubRepoURL.length > 0 || githubProjURL.length > 0}
-                            />
 
-                            <input
-                                type="text"
-                                name='githubRepoURL'
-                                placeholder="https://github.com/<owner>/<repo>"
-                                value={githubRepoURL}
-                                onChange={(e) => handleInputChange(e)}
-                                disabled={jiraURL.length > 0}
-                            />
+            {/* Manual add team modal */}
+            {showManualModal && (
+                <div className="overlay">
+                    <div className="modal">
+                        <div>
+                            <h2>Add Team</h2>
+                            <p>Copy the URL from Jira / GitHub's Kanban board page: e.g.,</p>
+                            <ul>
+                                <li>(Jira) https://example-workspace.atlassian.net/jira/software/projects/example/boards/1</li>
+                                <li>(GitHub) https://github.com/users/ExampleUser/projects/1</li>
+                            </ul>
+                        </div>
+                        <input type="text" name='teamName' placeholder="Team Name" value={teamName} onChange={handleInputChange} />
+                        <input type="text" name='jiraURL' placeholder="https://<workspace>/jira/software/projects/<key>/boards/<ID>" value={jiraURL} onChange={handleInputChange} disabled={githubRepoURL.length > 0 || githubProjURL.length > 0} />
+                        <input type="text" name='githubRepoURL' placeholder="https://github.com/<owner>/<repo>" value={githubRepoURL} onChange={handleInputChange} disabled={jiraURL.length > 0} />
+                        <input type="text" name='githubProjURL' placeholder="https://github.com/users/<owner>/projects/<ID>" value={githubProjURL} onChange={handleInputChange} disabled={jiraURL.length > 0} />
+                        {error && <p className="error">{error}</p>}
+                        <div className='linebreak' />
+                        <div className="modalActions">
+                            <button className="misc-team-btn" onClick={() => { setTeamName(''); setJiraURL(''); setGithubRepoURL(''); setGithubProjURL(''); setError(''); setShowManualModal(false); }}>Cancel</button>
+                            <button className="add-team-btn" onClick={handleManualAddSubmit}>Add</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                            <input
-                                type="text"
-                                name='githubProjURL'
-                                placeholder="https://github.com/users/<owner>/projects/<ID>"
-                                value={githubProjURL}
-                                onChange={(e) => handleInputChange(e)}
-                                disabled={jiraURL.length > 0}
-                            />
-                            {error && <p className="error">{error}</p>}
+            {/* Bulk import modal */}
+            {showBulkModal && (
+                <div className="overlay">
+                    <div className="modal">
+                        <div>
+                            <h2>Import Teams</h2>
+                            <p>Upload the import team excel.</p>
+                            <input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => { setError(''); setImportFile(e.target.files?.[0]); }} />
+                            <p>Note: Download a template from <strong>Download Import Template</strong> button.</p>
+                            {error && (
+                                Array.isArray(error) && error.length > 0
+                                    ? <ul className="error">{error.map((err, i) => <li key={i}>{err}</li>)}</ul>
+                                    : <p className="error">{error}</p>
+                            )}
                             <div className='linebreak' />
                             <div className="modalActions">
-                                <button className="misc-team-btn"
-                                    onClick={() => {
-                                        setTeamName("");
-                                        setJiraURL("");
-                                        setGithubRepoURL("");
-                                        setGithubProjURL("");
-                                        setError("");
-                                        setShowManualModal(false)
-                                    }}>Cancel</button>
-
-                                <button className="add-team-btn"
-                                    onClick={() => handleManualAddSubmit()}>
-                                    Add
-                                </button>
-                            </div>
-
-                        </div>
-                    </div>
-                )
-            }
-            {
-                showBulkModal && (
-                    <div className="overlay">
-                        <div className="modal">
-                            <div>
-                                <h2>Import Teams</h2>
-                                <p>Upload the import team excel.</p>
-                                <input
-                                    type="file"
-                                    accept=".xlsx,.xls,.csv"
-                                    onChange={(e) => {
-                                        setError('');
-                                        setImportFile(e.target.files?.[0]);
-                                    }}
-                                />
-                                <p>Note: Download a template from <strong>Download Import Template</strong> button.</p>
-                                {error &&
-                                    (Array.isArray(error) && error.length > 0) ?
-                                    <ul className="error">
-                                        {
-                                            error.map((err, i) => (
-                                                <li key={i}>{err}</li>
-                                            ))
-                                        }
-                                    </ul>
-                                    :
-                                    <p className="error">{error}</p>
-                                }
-                                <div className='linebreak' />
-                                <div className="modalActions">
-                                    <button className="misc-team-btn"
-                                        onClick={() => {
-                                            setImportFile(null);
-                                            setError("");
-                                            setShowBulkModal(false)
-                                        }}>Cancel</button>
-
-                                    <button className="add-team-btn"
-                                        onClick={() => handleBulkAddSubmit()}>
-                                        Import
-                                    </button>
-                                </div>
+                                <button className="misc-team-btn" onClick={() => { setImportFile(null); setError(''); setShowBulkModal(false); }}>Cancel</button>
+                                <button className="add-team-btn" onClick={handleBulkAddSubmit}>Import</button>
                             </div>
                         </div>
                     </div>
-                )
-            }
-        </header >
+                </div>
+            )}
+        </header>
     );
 }

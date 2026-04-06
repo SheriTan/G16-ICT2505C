@@ -8,13 +8,14 @@ import {
 } from "../data/teamStore.js";
 
 import { validateJiraBoardUrl, validateGithubRepoUrl, validateGithubProjectUrl } from "../../src/utils/UrlValidator.js";
+
 const router = express.Router();
 
-// Single / Bulk Add
+// Builds a validated team object from the request body before any DB write
 function buildTeamFromPayload(body) {
   const {
     teamName,
-    platform, // "jira" | "github"
+    platform, // "jira" or "github"
     jiraBoardUrl,
     githubRepoUrl,
     githubProjectUrl,
@@ -27,17 +28,19 @@ function buildTeamFromPayload(body) {
     throw new Error("platform must be 'jira' or 'github'");
   }
 
+  // Temporary client-side id — the real tid comes from MySQL on insert
   const id = `team_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
   const newTeam = {
     id,
     teamName: finalTeamName,
-    platform, // store platform (useful for MySQL later)
+    platform,
   };
 
   if (platform === "jira") {
     if (!jiraBoardUrl) throw new Error("jiraBoardUrl required for Jira teams");
 
+    // Validates the URL format and extracts projectKey and boardId
     const parsed = validateJiraBoardUrl(jiraBoardUrl);
     if (!parsed) {
       throw new Error("Invalid Jira board URL. Expected /projects/<KEY>/boards/<ID>");
@@ -59,6 +62,7 @@ function buildTeamFromPayload(body) {
       throw new Error("githubProjectUrl required (used by current GitHub dashboard code)");
     }
 
+    // Validates both the repo URL and the project URL separately
     const repoParsed = validateGithubRepoUrl(githubRepoUrl);
     if (!repoParsed) {
       throw new Error("Invalid GitHub repo URL. Expected https://github.com/<owner>/<repo>");
@@ -75,7 +79,6 @@ function buildTeamFromPayload(body) {
       owner: projParsed.owner,
       projectNumber: projParsed.projectNumber,
       projectUrl: githubProjectUrl,
-
       repoUrl: githubRepoUrl,
       repoOwner: repoParsed.owner,
       repoName: repoParsed.repo,
@@ -89,7 +92,7 @@ function buildTeamFromPayload(body) {
 // Routes
 // ---------------------------
 
-// GET all teams
+// GET all teams belonging to the logged-in instructor
 router.get("/", async (req, res) => {
   try {
     const iid = req.session.user?.iid;
@@ -101,14 +104,15 @@ router.get("/", async (req, res) => {
     const teams = await readTeams(iid);
     res.json({ success: true, teams });
   } catch (e) {
+    // FIX: was 'err.message' — 'err' is not defined, the caught variable is 'e'
     res.status(500).json({
       success: false,
-      message: err.message
+      message: e.message
     });
   }
 });
 
-// ADD a team (manual UI)
+// POST — add a single team entered manually in the UI
 router.post("/", async (req, res) => {
   try {
     const iid = req.session.user?.iid;
@@ -127,7 +131,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// BULK import teams (Excel -> frontend -> JSON -> this endpoint)
+// POST /bulk — import multiple teams from a parsed Excel file
 router.post("/bulk", async (req, res) => {
   try {
     const iid = req.session.user?.iid;
@@ -144,6 +148,7 @@ router.post("/bulk", async (req, res) => {
     const results = [];
     const toInsert = [];
 
+    // Validate every row first — collect errors and valid rows separately
     teams.forEach((row, idx) => {
       try {
         const t = buildTeamFromPayload(row);
@@ -154,9 +159,19 @@ router.post("/bulk", async (req, res) => {
       }
     });
 
+    // FIX: guard against empty insert — if all rows failed, return early with errors
+    if (toInsert.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid teams to import",
+        results,
+      });
+    }
+
+    // Wrap all inserts in a single transaction so one failure rolls back all
     await bulkAddTeams(toInsert, iid);
 
-    const ok = results.filter((r) => r.success).length;
+    const ok   = results.filter((r) => r.success).length;
     const fail = results.length - ok;
 
     res.json({
@@ -169,7 +184,7 @@ router.post("/bulk", async (req, res) => {
   }
 });
 
-// UPDATE a team
+// PUT /:id — update an existing team's name or board URLs
 router.put("/:id", async (req, res) => {
   try {
     const iid = req.session.user?.iid;
@@ -207,15 +222,20 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE a team
+// DELETE /:id — remove a team (only the owning instructor can delete)
 router.delete("/:id", async (req, res) => {
-  const iid = req.session.user?.iid;
-  if (!iid) {
-    return res.status(401).json({ success: false, message: "Unauthorized User" });
+  // FIX: added try/catch — without it, a DB error would crash the whole server
+  try {
+    const iid = req.session.user?.iid;
+    if (!iid) {
+      return res.status(401).json({ success: false, message: "Unauthorized User" });
+    }
+    const { id } = req.params;
+    const out = await deleteTeam(id, iid);
+    res.json({ success: true, ...out });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
   }
-  const { id } = req.params;
-  const out = await deleteTeam(id, iid);
-  res.json({ success: true, ...out });
 });
 
 export default router;

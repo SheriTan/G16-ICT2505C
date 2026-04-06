@@ -5,8 +5,8 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [authenticated, setAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [user, setUser]                   = useState(null);
 
   useEffect(() => {
     checkSession();
@@ -27,13 +27,13 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = async (email) => {
-    await API.post("/login", { email });
+  const login = async (email, password) => {
+    await API.post("/login", { email, password });
     setAuthenticated(true);
   };
 
-  const register = async (email, jiraToken, githubToken) => {
-    await API.post("/register", { email, jiraToken, githubToken });
+  const register = async (email, password, jiraToken, githubToken) => {
+    await API.post("/register", { email, password, jiraToken, githubToken });
     setAuthenticated(true);
   };
 
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ authenticated, loading, login, register, logout, getProfile, updateProfile }}>
+    <AuthContext.Provider value={{ authenticated, loading, user, login, register, logout, getProfile, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

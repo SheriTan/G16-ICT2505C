@@ -2,32 +2,41 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/AuthContext';
 
 const Profile = () => {
-    const { user, getProfile, updateProfile } = useAuth();
+    const { getProfile, updateProfile } = useAuth();
+
     const [form, setForm] = useState({
-        email: "",
-        jiraToken: "",
+        email:       "",
+        jiraToken:   "",
         githubToken: ""
     });
 
+    // FIX: added error state — previously update failures were silently swallowed
+    const [updateError,   setUpdateError]   = useState('');
+    const [updateSuccess, setUpdateSuccess] = useState(false);
+
+    // Load the current profile data from the backend when the page mounts
     useEffect(() => {
         const loadUser = async () => {
             const data = await getProfile();
             setForm(data);
         };
-
         loadUser();
     }, []);
 
     const handleChange = (e) => {
-        setForm({
-            ...form,
-            [e.target.name]: e.target.value
-        });
+        setForm({ ...form, [e.target.name]: e.target.value });
     };
 
     const handleSubmit = async () => {
-        await updateProfile(form);
-        alert("Profile updated!");
+        // FIX: wrapped in try/catch so failures show an error instead of doing nothing
+        try {
+            setUpdateError('');
+            setUpdateSuccess(false);
+            await updateProfile(form);
+            setUpdateSuccess(true);
+        } catch (err) {
+            setUpdateError(err.response?.data?.message || 'Update failed. Please try again.');
+        }
     };
 
     return (
@@ -40,6 +49,7 @@ const Profile = () => {
                 onChange={handleChange}
                 placeholder="Email Address"
             />
+            {/* Tokens are shown decrypted for editing — stored encrypted in DB */}
             <input
                 name="jiraToken"
                 value={form.jiraToken}
@@ -55,8 +65,12 @@ const Profile = () => {
             <button onClick={handleSubmit}>
                 Save Changes
             </button>
+
+            {/* Show success or error feedback below the button */}
+            {updateSuccess && <p style={{ color: 'green' }}>Profile updated successfully.</p>}
+            {updateError   && <p className="error">{updateError}</p>}
         </div>
     );
-}
+};
 
 export default Profile;

@@ -1,9 +1,8 @@
 import express from "express";
 import pool from "../config/db.js";
-
+import bcrypt from "bcrypt";
 const router = express.Router();
 
-// Check session
 router.get("/session", (req, res) => {
     if (!req.session.user) {
         return res.status(401).json({ authenticated: false });
@@ -14,40 +13,61 @@ router.get("/session", (req, res) => {
 
 // Login
 router.post("/login", async (req, res) => {
-    const { email } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    const [rows] = await pool.query(
-        "SELECT * FROM instructor WHERE email = ?",
-        [email]
-    );
+        const [rows] = await pool.query(
+            "SELECT * FROM instructor WHERE email = ?",
+            [email]
+        );
 
-    if (rows.length === 0) {
-        return res.status(401).json({ success: false, message: "User not found" });
+        if (rows.length === 0) {
+            return res.status(401).json({ success: false, message: "Invalid credentials" });
+        }
+
+        const user = rows[0];
+
+        const match = await bcrypt.compare(password, user.passwordHash);
+        if (!match) {
+            return res.status(401).json({ success: false, message: "Invalid credentials" });
+        }
+
+        req.session.user = {
+            iid: user.iid,
+            email: user.email
+        };
+
+        res.json({ success: true });
+
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Internal Server Error" });
     }
-
-    const user = rows[0];
-
-    req.session.user = {
-        iid: user.iid,
-        email: user.email
-    };
-
-    res.json({ success: true });
 });
 
 // Register
 router.post("/register", async (req, res) => {
-    const { email, jiraToken, githubToken } = req.body;
+    const { email, password, jiraToken, githubToken } = req.body;
 
     try {
-        const [result] = await pool.query(`
-        INSERT INTO instructor (email, jiraToken, githubToken)
-        VALUES (
-        '${email}',
-        ${jiraToken ? `AES_ENCRYPT('${jiraToken}', '${process.env.SECRET_KEY}')` : 'NULL'},
-        ${githubToken ? `AES_ENCRYPT('${githubToken}', '${process.env.SECRET_KEY}')` : 'NULL'}
-        )
-        `);
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        const key = process.env.SECRET_KEY;
+
+        const [result] = await pool.query(
+            `INSERT INTO instructor (email, passwordHash, jiraToken, githubToken)
+             VALUES (
+               ?,
+               ?,
+               ${jiraToken  ? "AES_ENCRYPT(?, ?)" : "NULL"},
+               ${githubToken ? "AES_ENCRYPT(?, ?)" : "NULL"}
+             )`,
+            [
+                email,
+                passwordHash,
+                ...(jiraToken  ? [jiraToken,  key] : []),
+                ...(githubToken ? [githubToken, key] : []),
+            ]
+        );
 
         req.session.user = {
             iid: result.insertId,
@@ -60,7 +80,6 @@ router.post("/register", async (req, res) => {
         if (err.code === "ER_DUP_ENTRY") {
             return res.status(400).json({ success: false, message: "Email Address already exists" });
         }
-
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -73,7 +92,7 @@ router.post("/logout", (req, res) => {
     });
 });
 
-// Get User
+// Get profile
 router.get("/profile", async (req, res) => {
     if (!req.session.user) {
         return res.status(401).json({ message: "Unauthorized User" });
@@ -96,32 +115,34 @@ router.get("/profile", async (req, res) => {
 
     res.json({
         email: user.email,
-        jiraToken: user.jiraToken?.toString() || "",
-        githubToken: user.githubToken?.toString() || ""
+        jiraToken:    user.jiraToken?.toString()    || "",
+        githubToken:  user.githubToken?.toString()  || ""
     });
 });
 
-// Update User
+// Update profile
 router.put("/profile", async (req, res) => {
     if (!req.session.user) {
         return res.status(401).json({ message: "Unauthorized User" });
     }
 
     const { email, jiraToken, githubToken } = req.body;
+    const key = process.env.SECRET_KEY;
 
     try {
-        await pool.query(`
-            UPDATE instructor
-            SET email = ?,
-                jiraToken = ${jiraToken ? `AES_ENCRYPT(?, '${process.env.SECRET_KEY}')` : 'NULL'},
-                githubToken = ${githubToken ? `AES_ENCRYPT(?, '${process.env.SECRET_KEY}')` : 'NULL'}
-            WHERE iid = ?
-        `, [
-            email,
-            ...(jiraToken ? [jiraToken] : []),
-            ...(githubToken ? [githubToken] : []),
-            req.session.user.iid
-        ]);
+        await pool.query(
+            `UPDATE instructor
+             SET email = ?,
+                 jiraToken  = ${jiraToken  ? "AES_ENCRYPT(?, ?)" : "NULL"},
+                 githubToken = ${githubToken ? "AES_ENCRYPT(?, ?)" : "NULL"}
+             WHERE iid = ?`,
+            [
+                email,
+                ...(jiraToken  ? [jiraToken,  key] : []),
+                ...(githubToken ? [githubToken, key] : []),
+                req.session.user.iid,
+            ]
+        );
 
         res.json({ success: true });
 
