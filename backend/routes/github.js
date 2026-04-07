@@ -59,7 +59,7 @@ function normalizeStatus(raw) {
 }
 
 /* =========================================================
-   GitHub Project V2 fetchers
+   GitHub Project
 ========================================================= */
 
 // Fetches the project node ID and title needed to query its items

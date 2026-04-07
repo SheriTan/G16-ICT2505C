@@ -13,7 +13,6 @@ dotenv.config();
 
 const app = express();
 
-// FIX: CORS origin reads from env — avoids hardcoded localhost breaking on any deployment
 app.use(cors({
   origin: process.env.CORS_ORIGIN || "http://localhost:3000",
   credentials: true
@@ -27,7 +26,6 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    // FIX: secure must be true in production so cookie only travels over HTTPS
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax"
   }

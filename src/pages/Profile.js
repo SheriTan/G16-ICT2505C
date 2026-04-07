@@ -10,7 +10,6 @@ const Profile = () => {
         githubToken: ""
     });
 
-    // FIX: added error state — previously update failures were silently swallowed
     const [updateError,   setUpdateError]   = useState('');
     const [updateSuccess, setUpdateSuccess] = useState(false);
 

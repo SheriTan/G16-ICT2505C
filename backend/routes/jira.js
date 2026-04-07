@@ -198,7 +198,6 @@ router.get("/dashboard", async (req, res) => {
     let team = null;
     let boardId = null;
 
-    // -------- Resolve from teamId --------
     if (!finalProjectKey && teamId) {
       team = await getTeamWithInstructor(teamId);
 

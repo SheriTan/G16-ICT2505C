@@ -159,7 +159,6 @@ router.post("/bulk", async (req, res) => {
       }
     });
 
-    // FIX: guard against empty insert — if all rows failed, return early with errors
     if (toInsert.length === 0) {
       return res.status(400).json({
         success: false,

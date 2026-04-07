@@ -110,7 +110,6 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                 const githubRepoUrl   = String(header.githubrepourl   ?? "").trim();
                 const githubProjectUrl= String(header.githubprojecturl?? "").trim();
 
-                // Track whether this specific row has a problem
                 let rowHasError = false;
 
                 if (!teamName) {
@@ -118,7 +117,6 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                     rowHasError = true;
                 }
 
-                // FIX: platform validation added — blank or misspelled platform was silently skipped
                 if (platform !== 'jira' && platform !== 'github') {
                     dataErrors.push(`Row ${rowNum}: Platform must be 'jira' or 'github', got '${platform}'`);
                     rowHasError = true;
@@ -151,9 +149,6 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                         rowHasError = true;
                     }
                 }
-
-                // FIX: was checking global dataErrors.length — valid rows after a bad row were excluded
-                // Now uses a per-row flag so each row is evaluated independently
                 if (!rowHasError) {
                     bulkPayload.push({ platform, teamName, jiraBoardUrl, githubRepoUrl, githubProjectUrl });
                 }

@@ -89,7 +89,6 @@ export default function Team() {
         loadDashboard();
         intervalId = setInterval(() => loadDashboard(true), 10000);
         return () => { abortCtrl.abort(); clearInterval(intervalId); };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedTeam]);
 
     // ── Load grades when tab switches ─────────────────────────────────────
@@ -97,7 +96,6 @@ export default function Team() {
         if (activeTab === "grades" && selectedTeamID) {
             fetchGrades();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, selectedTeamID]);
 
     async function fetchGrades() {
@@ -143,7 +141,7 @@ export default function Team() {
 
     async function handleDeleteGrade(gid) {
         if (!gid) return;
-        setDeleteGradeId(gid); // open the confirm modal instead of window.confirm
+        setDeleteGradeId(gid);
         try {
             await fetch(`${api}/api/grades/${gid}`, { method: "DELETE", credentials: "include" });
             fetchGrades();
@@ -172,7 +170,7 @@ export default function Team() {
 
     const handleDelete = () => {
         if (!selectedTeam) return;
-        setShowDeleteModal(true); // open styled confirm modal
+        setShowDeleteModal(true);
     };
 
     const confirmDeleteTeam = async () => {
@@ -222,7 +220,6 @@ export default function Team() {
     }
 
     // ── Status panel (drilldown accordion) ───────────────────────────────
-    // eslint-disable-next-line no-unused-vars
     function StatusPanel({ status, items }) {
         const [open, setOpen] = useState(false);
         return (
