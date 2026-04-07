@@ -104,7 +104,6 @@ router.get("/", async (req, res) => {
     const teams = await readTeams(iid);
     res.json({ success: true, teams });
   } catch (e) {
-    // FIX: was 'err.message' — 'err' is not defined, the caught variable is 'e'
     res.status(500).json({
       success: false,
       message: e.message
