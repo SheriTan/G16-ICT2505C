@@ -12,10 +12,6 @@ Step 1 — Clone the repository
 bashgit clone https://github.com/<your-org>/G16-ICT2505C.git
 cd G16-ICT2505C
 
-Step 2 — Install dependencies
-Run this once in the project root. It installs both frontend and backend packages.
-bashnpm install
-
 Step 3 — Set up the MySQL database
 Open MySQL Workbench (or any MySQL client) and import the three SQL dump files in this order:
 
@@ -54,7 +50,8 @@ NODE_ENV=development — required for session cookies to work on localhost over 
 
 Step 5 — Start the backend
 Open a terminal in the project root and run:
-cd backend 
+cd backend
+npm install
 npm start
 You should see:
 Backend running on http://localhost:5000
@@ -62,7 +59,8 @@ The backend uses nodemon — it will automatically restart when you save any bac
 
 Step 6 — Start the frontend
 Open a second terminal (keep the first one running) and run:
-bashnpm start
+npm install
+npm start
 This opens the React app at http://localhost:3000 automatically.
 
 Both terminals should look like this

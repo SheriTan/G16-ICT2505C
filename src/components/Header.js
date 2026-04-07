@@ -31,7 +31,7 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
             case 'githubRepoURL': setGithubRepoURL(value); break;
             case 'githubProjURL': setGithubProjURL(value); break;
             case 'teamName':      setTeamName(value);      break;
-            default:              break; // no-op for any other field name
+            default:              break;
         }
     };
 
@@ -119,7 +119,6 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                     rowHasError = true;
                 }
 
-                // FIX: platform validation added — blank or misspelled platform was silently skipped
                 if (platform !== 'jira' && platform !== 'github') {
                     dataErrors.push(`Row ${rowNum}: Platform must be 'jira' or 'github', got '${platform}'`);
                     rowHasError = true;
@@ -152,7 +151,7 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                         rowHasError = true;
                     }
                 }
-                
+
                 if (!rowHasError) {
                     bulkPayload.push({ platform, teamName, jiraBoardUrl, githubRepoUrl, githubProjectUrl });
                 }

@@ -7,7 +7,7 @@ import jiraRoutes   from "./routes/jira.js";
 import teamsRoutes  from "./routes/teams.js";
 import githubRoutes from "./routes/github.js";
 import authRoutes   from "./routes/auth.js";
-import gradesRoutes from "./routes/grades.js"; // New grade CRUD routes
+import gradesRoutes from "./routes/grades.js";
 
 dotenv.config();
 
@@ -31,7 +31,7 @@ app.use(session({
   }
 }));
 
-// Health check — lets the frontend confirm the backend is reachable
+// Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", message: "KABAS backend running" });
 });
@@ -48,7 +48,7 @@ app.use("/api/teams", teamsRoutes);
 // GitHub dashboard routes
 app.use("/api/github", githubRoutes);
 
-// Grade CRUD routes (new)
+// Grade CRUD routes
 app.use("/api/grades", gradesRoutes);
 
 const PORT = process.env.PORT || 5000;
