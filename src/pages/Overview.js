@@ -19,7 +19,7 @@ const Overview = () => {
         teams.forEach(t => { initial[t.id] = { status: 'checking' }; });
         setHealthMap(initial);
 
-        // Health check for every team in parallel
+        // Fire a health check for every team in parallel
         teams.forEach(async (team) => {
             const url = team.platform === 'github'
                 ? `${api}/api/github/dashboard?teamId=${encodeURIComponent(team.id)}`

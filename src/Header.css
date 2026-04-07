@@ -196,3 +196,19 @@
         font-size: 12px;
     }
 }
+.dropdown-link {
+    background: none;
+    border: none;
+    padding: 10px 16px;
+    display: block;
+    width: 100%;
+    text-align: left;
+    text-decoration: none;
+    color: #333;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.dropdown-link:hover { background: #e4e4e4; }

@@ -31,6 +31,7 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
             case 'githubRepoURL': setGithubRepoURL(value); break;
             case 'githubProjURL': setGithubProjURL(value); break;
             case 'teamName':      setTeamName(value);      break;
+            default:              break; // no-op for any other field name
         }
     };
 
@@ -97,7 +98,7 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
             let dataErrors  = [];
             let bulkPayload = [];
 
-            rows.map((row, index) => {
+            rows.forEach((row, index) => {
                 // Normalise all column headers to lowercase to handle casing differences
                 const header = Object.fromEntries(
                     Object.entries(row).map(([key, value]) => [key.toLowerCase().trim(), value])
@@ -110,6 +111,7 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                 const githubRepoUrl   = String(header.githubrepourl   ?? "").trim();
                 const githubProjectUrl= String(header.githubprojecturl?? "").trim();
 
+                // Track whether this specific row has a problem
                 let rowHasError = false;
 
                 if (!teamName) {
@@ -117,6 +119,7 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                     rowHasError = true;
                 }
 
+                // FIX: platform validation added — blank or misspelled platform was silently skipped
                 if (platform !== 'jira' && platform !== 'github') {
                     dataErrors.push(`Row ${rowNum}: Platform must be 'jira' or 'github', got '${platform}'`);
                     rowHasError = true;
@@ -149,6 +152,7 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                         rowHasError = true;
                     }
                 }
+                
                 if (!rowHasError) {
                     bulkPayload.push({ platform, teamName, jiraBoardUrl, githubRepoUrl, githubProjectUrl });
                 }
@@ -271,12 +275,12 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                 <div className="desktop-menu">
                     <div className="dropdown-menu"><TbUserFilled /></div>
                     <div className="account-dropdown-content">
-                        <a onClick={(e) => { e.preventDefault(); navigate('/profile'); setSelectedTeamID(''); }}>
+                        <button className="dropdown-link" onClick={(e) => { e.preventDefault(); navigate('/profile'); setSelectedTeamID(''); }}>
                             Profile
-                        </a>
-                        <a onClick={async (e) => { e.preventDefault(); setSelectedTeamID(''); await logout(); }}>
+                        </button>
+                        <button className="dropdown-link" onClick={async (e) => { e.preventDefault(); setSelectedTeamID(''); await logout(); }}>
                             Logout
-                        </a>
+                        </button>
                     </div>
                 </div>
 
@@ -285,11 +289,11 @@ export default function Header({ api, teams, selectedTeamID, setSelectedTeamID, 
                         <TbDotsVertical />
                     </div>
                     <div className={`account-dropdown-content ${mobileOpen ? "show" : ""}`}>
-                        <a onClick={(e) => { e.preventDefault(); setMobileOpen(false); setShowManualModal(true); }}>Add Team</a>
-                        <a onClick={(e) => { e.preventDefault(); setMobileOpen(false); setShowBulkModal(true); }}>Import Teams</a>
-                        <a onClick={(e) => { e.preventDefault(); setMobileOpen(false); downloadExcelTemplate(); }}>Download Import Template</a>
-                        <a onClick={(e) => { e.preventDefault(); navigate('/profile'); setSelectedTeamID(''); setMobileOpen(false); }}>Profile</a>
-                        <a onClick={async (e) => { e.preventDefault(); setSelectedTeamID(''); setMobileOpen(false); await logout(); }}>Logout</a>
+                        <button className="dropdown-link" onClick={(e) => { e.preventDefault(); setMobileOpen(false); setShowManualModal(true); }}>Add Team</button>
+                        <button className="dropdown-link" onClick={(e) => { e.preventDefault(); setMobileOpen(false); setShowBulkModal(true); }}>Import Teams</button>
+                        <button className="dropdown-link" onClick={(e) => { e.preventDefault(); setMobileOpen(false); downloadExcelTemplate(); }}>Download Import Template</button>
+                        <button className="dropdown-link" onClick={(e) => { e.preventDefault(); navigate('/profile'); setSelectedTeamID(''); setMobileOpen(false); }}>Profile</button>
+                        <button className="dropdown-link" onClick={async (e) => { e.preventDefault(); setSelectedTeamID(''); setMobileOpen(false); await logout(); }}>Logout</button>
                     </div>
                 </div>
             </div>
