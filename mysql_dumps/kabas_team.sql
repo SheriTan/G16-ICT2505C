@@ -1,10 +1,8 @@
-CREATE DATABASE  IF NOT EXISTS `kabas` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
-USE `kabas`;
--- MySQL dump 10.13  Distrib 8.0.34, for Win64 (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
--- Host: 127.0.0.1    Database: kabas
+-- Host: localhost    Database: kabas
 -- ------------------------------------------------------
--- Server version	8.0.35
+-- Server version	8.0.45
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -37,7 +35,7 @@ CREATE TABLE `team` (
   UNIQUE KEY `github_UNIQUE` (`iid`,`github_repourl`,`github_projurl`),
   KEY `iid_idx` (`iid`),
   CONSTRAINT `iid` FOREIGN KEY (`iid`) REFERENCES `instructor` (`iid`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -46,7 +44,7 @@ CREATE TABLE `team` (
 
 LOCK TABLES `team` WRITE;
 /*!40000 ALTER TABLE `team` DISABLE KEYS */;
-INSERT INTO `team` VALUES (1,1,'KABAS-TestBoard','https://sit-workspace.atlassian.net/jira/software/projects/KT/boards/201',NULL,NULL),(2,1,'@SheriTan\'s test proj',NULL,'https://github.com/SheriTan/mytestrepo2','https://github.com/users/SheriTan/projects/2'),(3,2,'Manual Add Test','https://sit-workspace.atlassian.net/jira/software/projects/K1/boards/67',NULL,NULL),(4,2,'Manual Add Test 2',NULL,'https://github.com/SheriTan/mytestrepo2','https://github.com/users/SheriTan/projects/2');
+INSERT INTO `team` VALUES (1,1,'KABAS-TestBoard','https://sit-workspace.atlassian.net/jira/software/projects/KT/boards/201',NULL,NULL),(2,1,'@SheriTan\'s test proj',NULL,'https://github.com/SheriTan/mytestrepo2','https://github.com/users/SheriTan/projects/2'),(3,2,'Manual Add Test','https://sit-workspace.atlassian.net/jira/software/projects/K1/boards/67',NULL,NULL),(4,2,'Manual Add Test 2',NULL,'https://github.com/SheriTan/mytestrepo2','https://github.com/users/SheriTan/projects/2'),(5,3,'Team 1','https://sit-workspace.atlassian.net/jira/software/projects/K1/boards/67',NULL,NULL),(6,3,'Team 2',NULL,'https://github.com/<owner>/<repo>','https://github.com/users/<owner>/projects/1'),(7,3,'Team 3','https://sit-workspace.atlassian.net/jira/software/projects/ICT2505C/boards/1',NULL,NULL),(8,4,'Team 1','https://sit-workspace.atlassian.net/jira/software/projects/K1/boards/67',NULL,NULL),(9,4,'Team 2',NULL,'https://github.com/<owner>/<repo>','https://github.com/users/<owner>/projects/1'),(10,4,'Team 3','https://sit-workspace.atlassian.net/jira/software/projects/ICT2505C/boards/1',NULL,NULL),(12,4,'Team 4',NULL,'https://github.com/M0nk3y01/ICT2504C','https://github.com/users/M0nk3y01/projects/1');
 /*!40000 ALTER TABLE `team` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -59,4 +57,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-03-30  4:53:18
+-- Dump completed on 2026-04-07 17:57:22
