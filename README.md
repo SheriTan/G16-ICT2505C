@@ -1,70 +1,100 @@
-# Getting Started with Create React App
+KABAS — Kanban Board Assessment System
+A full-stack web application that aggregates Jira and GitHub Kanban board data into a unified instructor dashboard. Built with React, Node.js/Express, and MySQL.
+Team 16 — YTC
+NameStudent ID: Chu Jun An Theron(2303610) Tan Wen Lin Sheri Isabel(2303629) Yeo Kai Lin(2303636)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Prerequisites
+Make sure you have the following installed before starting:
+ToolVersionCheckNode.jsv18 or abovenode -vnpmv9 or abovenpm -vMySQLv8 or abovemysql --version
 
-## Available Scripts
+Getting Started
+Step 1 — Clone the repository
+bashgit clone https://github.com/<your-org>/G16-ICT2505C.git
+cd G16-ICT2505C
 
-In the project directory, you can run:
+Step 2 — Install dependencies
+Run this once in the project root. It installs both frontend and backend packages.
+bashnpm install
 
-### `npm start`
+Step 3 — Set up the MySQL database
+Open MySQL Workbench (or any MySQL client) and import the three SQL dump files in this order:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+mysql_dumps/kabas_instructor.sql
+mysql_dumps/kabas_team.sql
+mysql_dumps/kabas_grade.sql
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+In MySQL Workbench: Server → Data Import → Import from Self-Contained File → select each file → click Start Import.
+Then run this once to add the password column:
+sqlUSE kabas;
+ALTER TABLE instructor ADD COLUMN passwordHash VARCHAR(255) NOT NULL DEFAULT '';
 
-### `npm test`
+Step 4 — Create the .env file
+Create a file named .env in the project root (same folder as package.json):
+PORT=3000
+REACT_APP_API_URL=http://localhost:5000
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Create a file named .env in the backend (same folder as server.json):
+envDB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=kabas
+SECRET_KEY=kabas_secret_key_2024
+PORT=5000
+CORS_ORIGIN=http://localhost:3000
+NODE_ENV=development
 
-### `npm run build`
+Notes:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+DB_USER — use root or whichever MySQL user has access to the kabas database
+DB_PASSWORD — leave blank if your MySQL root has no password, otherwise fill it in
+SECRET_KEY — used for AES encryption of Jira/GitHub tokens. Do not change this after accounts have been created or stored tokens will fail to decrypt
+NODE_ENV=development — required for session cookies to work on localhost over HTTP
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-### `npm run eject`
+Step 5 — Start the backend
+Open a terminal in the project root and run:
+cd backend 
+npm start
+You should see:
+Backend running on http://localhost:5000
+The backend uses nodemon — it will automatically restart when you save any backend file.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Step 6 — Start the frontend
+Open a second terminal (keep the first one running) and run:
+bashnpm start
+This opens the React app at http://localhost:3000 automatically.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Both terminals should look like this
+Terminal 1 (backend)          Terminal 2 (frontend)
+────────────────────────      ────────────────────────
+npm run backend               npm start
+→ Express on :5000            → React on :3000
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Creating Your First Account
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Open http://localhost:3000 in your browser
+Click "Create an account"
+Enter your SIT email address and a password
+Optionally paste your Jira API token and/or GitHub personal access token
+Click "Create account" — you will be logged in automatically
 
-## Learn More
+To update your API tokens later, click the profile icon in the top-right → Profile.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Adding Teams
+Manual entry:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Click + Add Team in the header
+Enter the team name
+Paste either a Jira board URL or both GitHub URLs (repo + project)
+Click Add
 
-### Code Splitting
+Bulk import via Excel:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Click Download Import Template to get the Excel template
+Fill in your teams following the example rows
+Click Import Teams and upload the completed file
 
-### Analyzing the Bundle Size
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Jira & GitHub URL Formats
+PlatformFieldExampleJiraBoard URLhttps://workspace.atlassian.net/jira/software/projects/KEY/boards/67GitHubRepo URLhttps://github.com/owner/repo-nameGitHubProject URL (user)https://github.com/users/owner/projects/1GitHubProject URL (org)https://github.com/orgs/OrgName/projects/1
